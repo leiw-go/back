@@ -5,19 +5,16 @@ spring:
   application:
     name: ProjectInfomationManage
   datasource:
-    url: jdbc:h2:mem:projectdb;DB_CLOSE_DELAY=-1;MODE=MySQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    url: jdbc:mysql://localhost:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: Root@123456
   sql:
     init:
       mode: always
       schema-locations: classpath:sql/schema.sql
       data-locations: classpath:sql/data.sql
+      continue-on-error: true
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
