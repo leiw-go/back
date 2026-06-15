@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8888
 
 spring:
   application:
@@ -13,7 +13,7 @@ spring:
     init:
       mode: always
       schema-locations: classpath:sql/schema.sql
-      data-locations: classpath:sql/data.sql
+      data-locations: classpath:sql/data.sql,classpath:sql/data-user.sql
       continue-on-error: true
 
 mybatis:

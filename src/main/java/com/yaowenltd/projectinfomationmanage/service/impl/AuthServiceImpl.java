@@ -7,13 +7,18 @@ package com.yaowenltd.projectinfomationmanage.service.impl;
 import com.yaowenltd.projectinfomationmanage.common.JwtUtil;
 import com.yaowenltd.projectinfomationmanage.common.UnauthorizedException;
 import com.yaowenltd.projectinfomationmanage.mapper.UserMapper;
+import com.yaowenltd.projectinfomationmanage.mapper.RoleMapper;
+import com.yaowenltd.projectinfomationmanage.model.dto.CurrentUserResponse;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginRequest;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginResponse;
+import com.yaowenltd.projectinfomationmanage.model.entity.Role;
 import com.yaowenltd.projectinfomationmanage.model.entity.User;
 import com.yaowenltd.projectinfomationmanage.service.AuthService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * Implementation of AuthService for user authentication.
@@ -23,6 +28,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserMapper userMapper;
 
+    private final RoleMapper roleMapper;
+
     private final JwtUtil jwtUtil;
 
     private final PasswordEncoder passwordEncoder;
@@ -31,10 +38,12 @@ public class AuthServiceImpl implements AuthService {
      * Constructs an AuthServiceImpl with required dependencies.
      *
      * @param userMapper the user mapper
+     * @param roleMapper the role mapper
      * @param jwtUtil    the JWT utility
      */
-    public AuthServiceImpl(UserMapper userMapper, JwtUtil jwtUtil) {
+    public AuthServiceImpl(UserMapper userMapper, RoleMapper roleMapper, JwtUtil jwtUtil) {
         this.userMapper = userMapper;
+        this.roleMapper = roleMapper;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
@@ -59,5 +68,36 @@ public class AuthServiceImpl implements AuthService {
 
         String token = jwtUtil.generateToken(user.getUsername());
         return new LoginResponse(token, user.getUsername(), user.getRealName());
+    }
+
+    /**
+     * Retrieves the current authenticated user's information including their role code.
+     *
+     * @param username the username from the JWT token
+     * @return the current user response
+     * @throws UnauthorizedException if the user is not found
+     */
+    @Override
+    public CurrentUserResponse getCurrentUser(String username) {
+        User user = userMapper.findUserByUsername(username);
+        if (user == null) {
+            throw new UnauthorizedException("user not found");
+        }
+
+        List<Role> roles = roleMapper.findRolesByUserId(user.getId());
+        String roleCode = null;
+        if (roles != null && !roles.isEmpty()) {
+            roleCode = roles.get(0).getRoleCode();
+        }
+
+        CurrentUserResponse response = new CurrentUserResponse();
+        response.setId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setRoleCode(roleCode);
+        response.setRealName(user.getRealName());
+        response.setEmail(user.getEmail());
+        response.setPhone(user.getPhone());
+        response.setStatus(user.getStatus());
+        return response;
     }
 }
