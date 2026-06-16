@@ -4,6 +4,8 @@
 
 package com.yaowenltd.projectinfomationmanage.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -13,28 +15,37 @@ import java.util.List;
 /**
  * DTO for user information, used for creating and updating users.
  */
+@Schema(description = "用户信息")
 public class UserDto {
 
+    @Schema(description = "用户ID")
     private String id;
 
     @NotBlank(message = "username cannot be empty")
+    @Schema(description = "用户名", example = "zhangsan")
     @Size(min = 2, max = 64, message = "username length must be between 2 and 64")
     private String username;
 
+    @Schema(description = "密码", example = "123456")
     @Size(min = 6, max = 128, message = "password length must be between 6 and 128")
     private String password;
 
+    @Schema(description = "真实姓名", example = "张三")
     @Size(max = 64, message = "real name length must not exceed 64")
     private String realName;
 
+    @Schema(description = "邮箱", example = "zhangsan@example.com")
     @Size(max = 128, message = "email length must not exceed 128")
     private String email;
 
+    @Schema(description = "手机号", example = "13800138000")
     @Size(max = 20, message = "phone length must not exceed 20")
     private String phone;
 
+    @Schema(description = "状态: 1=启用, 0=禁用", example = "1")
     private Integer status;
 
+    @Schema(description = "角色ID列表")
     private List<String> roleIds;
 
     private LocalDateTime createTime;

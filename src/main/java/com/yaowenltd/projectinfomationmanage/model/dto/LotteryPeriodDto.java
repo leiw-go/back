@@ -3,6 +3,8 @@
  */
  
  package com.yaowenltd.projectinfomationmanage.model.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
  
  import jakarta.validation.constraints.NotBlank;
  import jakarta.validation.constraints.NotNull;
@@ -13,36 +15,47 @@
  /**
   * DTO for lottery period CRUD operations.
   */
- public class LotteryPeriodDto {
+ @Schema(description = "大乐透开奖记录")
+public class LotteryPeriodDto {
  
-     private String id;
+     @Schema(description = "记录ID")
+    private String id;
  
      @NotBlank(message = "期数不能为空")
+    @Schema(description = "期号", example = "25001")
      private String period;
  
      @NotNull(message = "开奖日期不能为空")
+    @Schema(description = "开奖日期", example = "2025-01-04")
      private LocalDate drawDate;
  
      @NotNull(message = "前区一号不能为空")
-     private Integer front1;
+    @Schema(description = "前区号码1", example = "5")
+    private Integer front1;
  
      @NotNull(message = "前区二号不能为空")
-     private Integer front2;
+    @Schema(description = "前区号码2", example = "12")
+    private Integer front2;
  
      @NotNull(message = "前区三号不能为空")
-     private Integer front3;
+    @Schema(description = "前区号码3", example = "23")
+    private Integer front3;
  
      @NotNull(message = "前区四号不能为空")
-     private Integer front4;
+    @Schema(description = "前区号码4", example = "28")
+    private Integer front4;
  
      @NotNull(message = "前区五号不能为空")
-     private Integer front5;
+    @Schema(description = "前区号码5", example = "34")
+    private Integer front5;
  
      @NotNull(message = "后区一号不能为空")
-     private Integer back1;
+    @Schema(description = "后区号码1", example = "3")
+    private Integer back1;
  
      @NotNull(message = "后区二号不能为空")
-     private Integer back2;
+    @Schema(description = "后区号码2", example = "10")
+    private Integer back2;
  
      private LocalDateTime createTime;
  

@@ -3,6 +3,8 @@
  */
  
  package com.yaowenltd.projectinfomationmanage.model.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
  
  import java.util.List;
  import java.util.Map;
@@ -11,13 +13,17 @@
   * Response for multi-period statistics comparison.
   * frontAreaStats and backAreaStats are sorted by totalCount descending.
   */
- public class MultiplePeriodStatisticsResponse {
+ @Schema(description = "多时间段号码统计对比结果")
+public class MultiplePeriodStatisticsResponse {
  
-     private List<PeriodSummary> periods;
+     @Schema(description = "各时间段概要信息")
+    private List<PeriodSummary> periods;
  
-     private List<MultiPeriodNumberStatistic> frontAreaStats;
+     @Schema(description = "前区各号码多时间段统计（按总次数降序）")
+    private List<MultiPeriodNumberStatistic> frontAreaStats;
  
-     private List<MultiPeriodNumberStatistic> backAreaStats;
+     @Schema(description = "后区各号码多时间段统计（按总次数降序）")
+    private List<MultiPeriodNumberStatistic> backAreaStats;
  
      public List<PeriodSummary> getPeriods() {
          return periods;
@@ -46,11 +52,14 @@
      /**
       * Summary of a single time range period.
       */
-     public static class PeriodSummary {
+     @Schema(description = "时间段概要")
+    public static class PeriodSummary {
  
-         private String label;
+         @Schema(description = "时间段标签", example = "2025上半年")
+        private String label;
  
-         private long totalPeriods;
+         @Schema(description = "总期数", example = "86")
+        private long totalPeriods;
  
          public String getLabel() {
              return label;
@@ -72,13 +81,17 @@
      /**
       * A number's statistic across multiple time ranges.
       */
-     public static class MultiPeriodNumberStatistic implements Comparable<MultiPeriodNumberStatistic> {
+     @Schema(description = "号码多时间段统计")
+    public static class MultiPeriodNumberStatistic implements Comparable<MultiPeriodNumberStatistic> {
  
-         private String number;
+         @Schema(description = "号码", example = "10")
+        private String number;
  
-         private Map<String, Long> counts;
+         @Schema(description = "各时间段出现次数映射")
+        private Map<String, Long> counts;
  
-         private long totalCount;
+         @Schema(description = "总出现次数", example = "28")
+        private long totalCount;
  
          public String getNumber() {
              return number;

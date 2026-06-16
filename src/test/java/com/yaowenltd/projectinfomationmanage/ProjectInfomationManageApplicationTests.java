@@ -9,8 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for ProjectInfomationManageApplication.
@@ -32,11 +31,14 @@ class ProjectInfomationManageApplicationTests {
     void testPasswordEncoderMatchesWithCorrectPassword() {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
         String rawPassword = "admin123";
+        String userPassword = "user123";
         String encodedPassword = passwordEncoder.encode(rawPassword);
-        System.out.println(encodedPassword);
+        String encodedUserPassword = passwordEncoder.encode(userPassword);
 
         boolean result = passwordEncoder.matches(rawPassword, encodedPassword);
 
+//        assertEquals("$2a$10$f7h1tWVC5PXEHzx81.UUE.JT/5ZfSxiQyNjVQTTV2S.wwBYLks0Xi", encodedPassword);
+//        assertEquals("$2a$10$lcwrBKeqzxzFUgInhXKI8eyOV4JFUwoflnWenTPuyGZQMEq8CsUQa", encodedUserPassword);
         assertTrue(result, "passwordEncoder.matches should return true for the correct password");
     }
 

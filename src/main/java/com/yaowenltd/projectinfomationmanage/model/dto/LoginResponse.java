@@ -4,15 +4,21 @@
 
 package com.yaowenltd.projectinfomationmanage.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * DTO for login response.
  */
+@Schema(description = "登录响应结果")
 public class LoginResponse {
 
+    @Schema(description = "JWT Token", example = "eyJhbGciOiJIUzI1NiJ9...")
     private String token;
 
+    @Schema(description = "用户名", example = "admin")
     private String username;
 
+    @Schema(description = "真实姓名", example = "管理员")
     private String realName;
 
     /**

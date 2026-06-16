@@ -4,22 +4,30 @@
 
 package com.yaowenltd.projectinfomationmanage.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * DTO for the current authenticated user response.
  * Returned by the GET /api/auth/currentUser endpoint.
  */
+@Schema(description = "当前登录用户信息")
 public class CurrentUserResponse {
 
+    @Schema(description = "用户ID")
     private String id;
 
+    @Schema(description = "用户名", example = "admin")
     private String username;
 
     private String roleCode;
 
+    @Schema(description = "真实姓名", example = "管理员")
     private String realName;
 
+    @Schema(description = "邮箱", example = "admin@example.com")
     private String email;
 
+    @Schema(description = "手机号", example = "13800138000")
     private String phone;
 
     private Integer status;

@@ -4,6 +4,8 @@
 
 package com.yaowenltd.projectinfomationmanage.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -13,26 +15,34 @@ import java.time.LocalDateTime;
 /**
  * DTO for product information, used for creating and updating products.
  */
+@Schema(description = "产品信息")
 public class ProductDto {
 
+    @Schema(description = "产品ID")
     private String id;
 
     @NotBlank(message = "product name cannot be empty")
+    @Schema(description = "产品名称", example = "超级大乐透")
     @Size(max = 128, message = "product name length must not exceed 128")
     private String productName;
 
     @NotBlank(message = "product code cannot be empty")
+    @Schema(description = "产品编码", example = "DLT")
     @Size(max = 64, message = "product code length must not exceed 64")
     private String productCode;
 
+    @Schema(description = "产品分类", example = "数字彩")
     @Size(max = 64, message = "category length must not exceed 64")
     private String category;
 
+    @Schema(description = "产品描述", example = "体彩大乐透")
     @Size(max = 512, message = "description length must not exceed 512")
     private String description;
 
+    @Schema(description = "价格", example = "2.00")
     private BigDecimal price;
 
+    @Schema(description = "状态: 1=启用, 0=禁用", example = "1")
     private Integer status;
 
     private LocalDateTime createTime;
