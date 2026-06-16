@@ -60,3 +60,19 @@ CREATE TABLE IF NOT EXISTS t_product (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+ CREATE TABLE IF NOT EXISTS t_lottery_period (
+     id VARCHAR(36) PRIMARY KEY,
+     period VARCHAR(20) NOT NULL UNIQUE COMMENT '期数',
+     draw_date DATE NOT NULL COMMENT '开奖日期',
+     front_1 INT NOT NULL COMMENT '前区一号',
+     front_2 INT NOT NULL COMMENT '前区二号',
+     front_3 INT NOT NULL COMMENT '前区三号',
+     front_4 INT NOT NULL COMMENT '前区四号',
+     front_5 INT NOT NULL COMMENT '前区五号',
+     back_1 INT NOT NULL COMMENT '后区一号',
+     back_2 INT NOT NULL COMMENT '后区二号',
+     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     INDEX idx_draw_date (draw_date),
+     INDEX idx_period (period)
+ );

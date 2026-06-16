@@ -5,10 +5,12 @@ spring:
   application:
     name: ProjectInfomationManage
   datasource:
-    url: jdbc:mysql://localhost:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+#    url: jdbc:mysql://localhost:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+    url: jdbc:mysql://localhost:13306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password: Root@123456
+#    password: Root@123456
+    password: 123456
   sql:
     init:
       mode: always
