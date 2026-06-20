@@ -1,0 +1,16 @@
+# 不要把构建产物、IDE 配置、Git 历史送进 Docker 构建上下文
+target/
+.git/
+.gitattributes
+.gitignore
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+.mvn/wrapper/maven-wrapper.jar
+HELP.md
+checkstyle_huawei.xml
+*.log
+.DS_Store
