@@ -90,6 +90,9 @@ public class MultiplePeriodStatisticsResponse {
          @Schema(description = "各时间段出现次数映射")
         private Map<String, Long> counts;
  
+         @Schema(description = "各时间段出现概率映射（百分比，保留两位小数）", example = "{\"2025上半年\": \"5.60%\"}")
+        private Map<String, String> probabilities;
+ 
          @Schema(description = "总出现次数", example = "28")
         private long totalCount;
  
@@ -107,6 +110,14 @@ public class MultiplePeriodStatisticsResponse {
  
          public void setCounts(Map<String, Long> counts) {
              this.counts = counts;
+         }
+ 
+         public Map<String, String> getProbabilities() {
+             return probabilities;
+         }
+ 
+         public void setProbabilities(Map<String, String> probabilities) {
+             this.probabilities = probabilities;
          }
  
          public long getTotalCount() {

@@ -10,6 +10,8 @@
  import com.yaowenltd.projectinfomationmanage.service.LotteryPeriodService;
  import org.springframework.stereotype.Service;
  
+ import java.math.BigDecimal;
+ import java.math.RoundingMode;
  import java.time.LocalDate;
  import java.time.LocalDateTime;
  import java.util.*;
@@ -24,6 +26,10 @@
      private static final int MAX_FRONT_NUMBER = 35;
  
      private static final int MAX_BACK_NUMBER = 12;
+ 
+     private static final int FRONT_NUMBERS_PER_PERIOD = 5;
+ 
+     private static final int BACK_NUMBERS_PER_PERIOD = 2;
  
      private final LotteryPeriodMapper lotteryPeriodMapper;
  
@@ -124,6 +130,7 @@
              List<MultiplePeriodStatisticsRequest.PeriodRange> ranges) {
  
          List<MultiplePeriodStatisticsResponse.PeriodSummary> periodSummaries = new ArrayList<>();
+         Map<String, Long> periodTotalPeriodsMap = new LinkedHashMap<>();
          Map<String, Map<String, Long>> frontCountsByLabel = new LinkedHashMap<>();
          Map<String, Map<String, Long>> backCountsByLabel = new LinkedHashMap<>();
  
@@ -131,11 +138,13 @@
              String label = range.getLabel();
              List<LotteryPeriod> periods = lotteryPeriodMapper.findLotteryPeriodsByDateRange(
                      range.getStartDate(), range.getEndDate());
+             long periodsInRange = periods.size();
+             periodTotalPeriodsMap.put(label, periodsInRange);
  
              MultiplePeriodStatisticsResponse.PeriodSummary summary =
                      new MultiplePeriodStatisticsResponse.PeriodSummary();
              summary.setLabel(label);
-             summary.setTotalPeriods(periods.size());
+             summary.setTotalPeriods(periodsInRange);
              periodSummaries.add(summary);
  
              Map<Integer, Long> frontFreq = new HashMap<>();
@@ -163,9 +172,9 @@
          }
  
          List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> frontStats =
-                 buildMultiPeriodStats(frontCountsByLabel);
+                 buildMultiPeriodStats(frontCountsByLabel, periodTotalPeriodsMap, FRONT_NUMBERS_PER_PERIOD);
          List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> backStats =
-                 buildMultiPeriodStats(backCountsByLabel);
+                 buildMultiPeriodStats(backCountsByLabel, periodTotalPeriodsMap, BACK_NUMBERS_PER_PERIOD);
          Collections.sort(frontStats);
          Collections.sort(backStats);
  
@@ -208,18 +217,55 @@
      }
  
      private List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> buildMultiPeriodStats(
-             Map<String, Map<String, Long>> countsByLabel) {
+             Map<String, Map<String, Long>> countsByLabel,
+             Map<String, Long> periodTotalPeriodsMap,
+             int numbersPerPeriod) {
          List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> result = new ArrayList<>();
+ 
          for (Map.Entry<String, Map<String, Long>> entry : countsByLabel.entrySet()) {
              MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic stat =
                      new MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic();
              stat.setNumber(entry.getKey());
              stat.setCounts(entry.getValue());
-             long total = entry.getValue().values().stream().mapToLong(Long::longValue).sum();
+ 
+             Map<String, String> probabilities = new LinkedHashMap<>();
+             long total = 0L;
+ 
+             for (Map.Entry<String, Long> countEntry : entry.getValue().entrySet()) {
+                 String label = countEntry.getKey();
+                 long count = countEntry.getValue();
+                 long totalPeriods = periodTotalPeriodsMap.getOrDefault(label, 0L);
+                 total += count;
+ 
+                 String probability = calculateProbability(count, totalPeriods, numbersPerPeriod);
+                 probabilities.put(label, probability);
+             }
+ 
+             stat.setProbabilities(probabilities);
              stat.setTotalCount(total);
+ 
              result.add(stat);
          }
          return result;
+     }
+ 
+     /**
+      * Calculates the probability as a percentage string with 2 decimal places rounded.
+      *
+      * @param appearances        number of times the number appeared in the period
+      * @param totalPeriods       total number of periods in the time range
+      * @param numbersPerPeriod  number of numbers drawn per period
+      * @return probability as percentage string with % suffix, e.g., "5.60%"
+      */
+     private String calculateProbability(long appearances, long totalPeriods, int numbersPerPeriod) {
+         long totalPossibleDraws = totalPeriods * numbersPerPeriod;
+         if (totalPossibleDraws <= 0) {
+             return "0.00%";
+         }
+         BigDecimal probability = BigDecimal.valueOf(appearances)
+                 .multiply(BigDecimal.valueOf(100))
+                 .divide(BigDecimal.valueOf(totalPossibleDraws), 2, RoundingMode.HALF_UP);
+         return probability.setScale(2, RoundingMode.HALF_UP).toPlainString() + "%";
      }
  
      private LotteryPeriodDto convertToDto(LotteryPeriod entity) {
