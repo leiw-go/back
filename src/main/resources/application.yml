@@ -34,3 +34,20 @@ springdoc:
 jwt:
   secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==
   expiration: 86400000
+
+quant:
+  # 聚宽 SDK 调用模式: PROCESS=通过 Python 脚本调用 jqdatasdk; REMOTE=通过 HTTP 调用远程聚宽服务
+  mode: PROCESS
+  # Python 解释器绝对路径
+  python-bin: python3
+  # 脚本入口, 接收 JSON 命令行参数, 输出 JSON 到 stdout
+  cli-script: ${user.dir}/quant/scripts/jq_cli.py
+  # 远程聚宽服务地址 (mode=REMOTE 时生效)
+  remote-base-url: http://127.0.0.1:5000
+  # 远程服务访问 token
+  remote-token: ""
+  # 单次调用超时 (秒)
+  call-timeout-seconds: 60
+  # AES 加密密钥, 至少 16 字节, 生产请通过环境变量 QUANT_AES_KEY 覆盖, 切勿提交真实密钥
+  aes:
+    key: ${QUANT_AES_KEY:}

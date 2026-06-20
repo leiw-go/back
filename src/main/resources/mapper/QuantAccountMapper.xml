@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.mapper.QuantAccountMapper">
+
+    <resultMap id="QuantAccountResultMap" type="QuantAccount">
+        <id column="id" property="id"/>
+        <result column="account_name" property="accountName"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="phone" property="phone"/>
+        <result column="is_active" property="isActive"/>
+        <result column="last_login_time" property="lastLoginTime"/>
+        <result column="last_login_status" property="lastLoginStatus"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, account_name, username, password, phone, is_active, last_login_time, last_login_status, create_time, update_time
+    </sql>
+
+    <insert id="insertAccount" parameterType="QuantAccount">
+        INSERT INTO t_quant_account (id, account_name, username, password, phone, is_active, create_time, update_time)
+        VALUES (#{id}, #{accountName}, #{username}, #{password}, #{phone},
+                #{isActive}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="updateAccount" parameterType="QuantAccount">
+        UPDATE t_quant_account
+        <set>
+            <if test="accountName != null">account_name = #{accountName},</if>
+            <if test="username != null">username = #{username},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            update_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLoginStatus">
+        UPDATE t_quant_account
+        SET last_login_time = #{lastLoginTime},
+            last_login_status = #{status},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteAccountById">
+        DELETE FROM t_quant_account WHERE id = #{id}
+    </delete>
+
+    <select id="findAccountById" resultMap="QuantAccountResultMap">
+        SELECT <include refid="BaseColumns"/> FROM t_quant_account WHERE id = #{id}
+    </select>
+
+    <select id="findAccountByName" resultMap="QuantAccountResultMap">
+        SELECT <include refid="BaseColumns"/> FROM t_quant_account WHERE account_name = #{accountName}
+    </select>
+
+    <select id="findAllAccounts" resultMap="QuantAccountResultMap">
+        SELECT <include refid="BaseColumns"/> FROM t_quant_account ORDER BY create_time DESC
+    </select>
+
+    <select id="findActiveAccounts" resultMap="QuantAccountResultMap">
+        SELECT <include refid="BaseColumns"/> FROM t_quant_account WHERE is_active = 1 ORDER BY create_time DESC
+    </select>
+</mapper>

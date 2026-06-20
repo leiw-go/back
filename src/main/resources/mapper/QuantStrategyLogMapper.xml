@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.mapper.QuantStrategyLogMapper">
+
+    <resultMap id="QuantStrategyLogResultMap" type="QuantStrategyLog">
+        <id column="id" property="id"/>
+        <result column="strategy_id" property="strategyId"/>
+        <result column="run_id" property="runId"/>
+        <result column="level" property="level"/>
+        <result column="message" property="message"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, strategy_id, run_id, level, message, create_time
+    </sql>
+
+    <insert id="insertLog" parameterType="QuantStrategyLog">
+        INSERT INTO t_quant_strategy_log (id, strategy_id, run_id, level, message, create_time)
+        VALUES (#{id}, #{strategyId}, #{runId}, #{level}, #{message}, #{createTime})
+    </insert>
+
+    <delete id="deleteLogsByStrategyId">
+        DELETE FROM t_quant_strategy_log WHERE strategy_id = #{strategyId}
+    </delete>
+
+    <select id="findLogsByStrategyId" resultMap="QuantStrategyLogResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM t_quant_strategy_log
+        WHERE strategy_id = #{strategyId}
+        ORDER BY create_time DESC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+</mapper>

@@ -4,6 +4,7 @@
 
 package com.yaowenltd.projectinfomationmanage.common;
 
+import com.yaowenltd.projectinfomationmanage.service.JoinQuantInvocationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,18 @@ public class GlobalExceptionHandler {
     public ResponseResult<Void> handleIllegalArgumentException(IllegalArgumentException exception) {
         LOGGER.warn("Illegal argument: {}", exception.getMessage());
         return ResponseResult.badRequest(exception.getMessage());
+    }
+
+    /**
+     * Handles JoinQuantInvocationException - the Python CLI bridge failed.
+     */
+    @ExceptionHandler(JoinQuantInvocationException.class)
+    public ResponseResult<Void> handleJoinQuantError(JoinQuantInvocationException exception) {
+        LOGGER.warn("JoinQuant invocation failed ({}): {}", exception.getCode(), exception.getMessage());
+        ResponseResult<Void> result = new ResponseResult<>(HttpStatus.BAD_GATEWAY.value(),
+            exception.getMessage(), null);
+        result.setErrors(java.util.Collections.singletonList(exception.getCode()));
+        return result;
     }
 
     /**

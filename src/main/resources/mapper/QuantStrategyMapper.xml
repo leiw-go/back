@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.mapper.QuantStrategyMapper">
+
+    <resultMap id="QuantStrategyResultMap" type="QuantStrategy">
+        <id column="id" property="id"/>
+        <result column="account_id" property="accountId"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="code" property="code"/>
+        <result column="parameters" property="parameters"/>
+        <result column="strategy_type" property="strategyType"/>
+        <result column="status" property="status"/>
+        <result column="initial_capital" property="initialCapital"/>
+        <result column="benchmark" property="benchmark"/>
+        <result column="start_date" property="startDate"/>
+        <result column="end_date" property="endDate"/>
+        <result column="frequency" property="frequency"/>
+        <result column="jq_strategy_id" property="jqStrategyId"/>
+        <result column="jq_backtest_id" property="jqBacktestId"/>
+        <result column="last_run_time" property="lastRunTime"/>
+        <result column="last_error" property="lastError"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, account_id, name, description, code, parameters, strategy_type, status,
+        initial_capital, benchmark, start_date, end_date, frequency,
+        jq_strategy_id, jq_backtest_id, last_run_time, last_error, create_time, update_time
+    </sql>
+
+    <insert id="insertStrategy" parameterType="QuantStrategy">
+        INSERT INTO t_quant_strategy (id, account_id, name, description, code, parameters,
+                                     strategy_type, status, initial_capital, benchmark,
+                                     start_date, end_date, frequency, create_time, update_time)
+        VALUES (#{id}, #{accountId}, #{name}, #{description}, #{code}, #{parameters},
+                #{strategyType}, #{status}, #{initialCapital}, #{benchmark},
+                #{startDate}, #{endDate}, #{frequency}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="updateStrategy" parameterType="QuantStrategy">
+        UPDATE t_quant_strategy
+        <set>
+            <if test="accountId != null">account_id = #{accountId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="code != null">code = #{code},</if>
+            <if test="parameters != null">parameters = #{parameters},</if>
+            <if test="strategyType != null">strategy_type = #{strategyType},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="initialCapital != null">initial_capital = #{initialCapital},</if>
+            <if test="benchmark != null">benchmark = #{benchmark},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
+            <if test="frequency != null">frequency = #{frequency},</if>
+            update_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE t_quant_strategy
+        SET status = #{status},
+            last_run_time = #{lastRunTime},
+            last_error = #{lastError},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateJqIds">
+        UPDATE t_quant_strategy
+        SET jq_strategy_id = #{jqStrategyId},
+            jq_backtest_id = #{jqBacktestId},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteStrategyById">
+        DELETE FROM t_quant_strategy WHERE id = #{id}
+    </delete>
+
+    <select id="findStrategyById" resultMap="QuantStrategyResultMap">
+        SELECT <include refid="BaseColumns"/> FROM t_quant_strategy WHERE id = #{id}
+    </select>
+
+    <select id="findAllStrategies" resultMap="QuantStrategyResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM t_quant_strategy
+        <where>
+            <if test="filter.name != null and filter.name != ''">
+                AND name LIKE CONCAT('%', #{filter.name}, '%')
+            </if>
+            <if test="filter.accountId != null and filter.accountId != ''">
+                AND account_id = #{filter.accountId}
+            </if>
+            <if test="filter.status != null and filter.status != ''">
+                AND status = #{filter.status}
+            </if>
+            <if test="filter.strategyType != null and filter.strategyType != ''">
+                AND strategy_type = #{filter.strategyType}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="countStrategies" resultType="long">
+        SELECT COUNT(*) FROM t_quant_strategy
+        <where>
+            <if test="filter.name != null and filter.name != ''">
+                AND name LIKE CONCAT('%', #{filter.name}, '%')
+            </if>
+            <if test="filter.accountId != null and filter.accountId != ''">
+                AND account_id = #{filter.accountId}
+            </if>
+            <if test="filter.status != null and filter.status != ''">
+                AND status = #{filter.status}
+            </if>
+            <if test="filter.strategyType != null and filter.strategyType != ''">
+                AND strategy_type = #{filter.strategyType}
+            </if>
+        </where>
+    </select>
+</mapper>

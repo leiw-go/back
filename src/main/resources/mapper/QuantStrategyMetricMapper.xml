@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.mapper.QuantStrategyMetricMapper">
+
+    <resultMap id="QuantStrategyMetricResultMap" type="QuantStrategyMetric">
+        <id column="id" property="id"/>
+        <result column="strategy_id" property="strategyId"/>
+        <result column="run_id" property="runId"/>
+        <result column="total_return" property="totalReturn"/>
+        <result column="annual_return" property="annualReturn"/>
+        <result column="sharpe_ratio" property="sharpeRatio"/>
+        <result column="max_drawdown" property="maxDrawdown"/>
+        <result column="alpha" property="alpha"/>
+        <result column="beta" property="beta"/>
+        <result column="win_rate" property="winRate"/>
+        <result column="volatility" property="volatility"/>
+        <result column="total_trade_count" property="totalTradeCount"/>
+        <result column="raw_json" property="rawJson"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id, strategy_id, run_id, total_return, annual_return, sharpe_ratio, max_drawdown,
+        alpha, beta, win_rate, volatility, total_trade_count, raw_json, create_time
+    </sql>
+
+    <insert id="insertMetric" parameterType="QuantStrategyMetric">
+        INSERT INTO t_quant_strategy_metric (id, strategy_id, run_id, total_return, annual_return,
+                                            sharpe_ratio, max_drawdown, alpha, beta, win_rate,
+                                            volatility, total_trade_count, raw_json, create_time)
+        VALUES (#{id}, #{strategyId}, #{runId}, #{totalReturn}, #{annualReturn},
+                #{sharpeRatio}, #{maxDrawdown}, #{alpha}, #{beta}, #{winRate},
+                #{volatility}, #{totalTradeCount}, #{rawJson}, #{createTime})
+    </insert>
+
+    <delete id="deleteMetricsByStrategyId">
+        DELETE FROM t_quant_strategy_metric WHERE strategy_id = #{strategyId}
+    </delete>
+
+    <select id="findMetricsByStrategyId" resultMap="QuantStrategyMetricResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM t_quant_strategy_metric
+        WHERE strategy_id = #{strategyId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="findLatestMetric" resultMap="QuantStrategyMetricResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM t_quant_strategy_metric
+        WHERE strategy_id = #{strategyId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+</mapper>
