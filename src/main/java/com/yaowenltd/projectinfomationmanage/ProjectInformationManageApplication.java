@@ -12,7 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * This is the Spring Boot application starter class.
  */
 @SpringBootApplication
-public class ProjectInfomationManageApplication {
+public class ProjectInformationManageApplication {
 
     /**
      * Main method to launch the Spring Boot application.
@@ -20,7 +20,7 @@ public class ProjectInfomationManageApplication {
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        SpringApplication.run(ProjectInfomationManageApplication.class, args);
+        SpringApplication.run(ProjectInformationManageApplication.class, args);
     }
 
 }

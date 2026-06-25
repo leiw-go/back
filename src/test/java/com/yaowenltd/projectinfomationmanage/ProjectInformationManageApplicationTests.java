@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for ProjectInfomationManageApplication.
  */
 @SpringBootTest
-class ProjectInfomationManageApplicationTests {
+class ProjectInformationManageApplicationTests {
 
     /**
      * Context loads test.
