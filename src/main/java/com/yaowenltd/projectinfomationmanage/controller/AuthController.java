@@ -10,6 +10,8 @@ import com.yaowenltd.projectinfomationmanage.config.SkipAuth;
 import com.yaowenltd.projectinfomationmanage.model.dto.CurrentUserResponse;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginRequest;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginResponse;
+import com.yaowenltd.projectinfomationmanage.model.dto.RegisterRequest;
+import com.yaowenltd.projectinfomationmanage.model.dto.RegisterResponse;
 import com.yaowenltd.projectinfomationmanage.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +46,20 @@ public class AuthController {
     public AuthController(AuthService authService, JwtUtil jwtUtil) {
         this.authService = authService;
         this.jwtUtil = jwtUtil;
+    }
+
+    /**
+     * Registers a new user with default USER role.
+     *
+     * @param registerRequest the registration data
+     * @return the registration response
+     */
+    @PostMapping("/register")
+    @SkipAuth
+    @Operation(summary = "User registration", description = "Register a new user with default USER role")
+    public ResponseResult<RegisterResponse> register(@Valid @RequestBody RegisterRequest registerRequest) {
+        RegisterResponse response = authService.register(registerRequest);
+        return ResponseResult.created(response);
     }
 
     /**

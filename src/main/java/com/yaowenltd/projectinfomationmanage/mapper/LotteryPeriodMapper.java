@@ -84,4 +84,15 @@ public interface LotteryPeriodMapper {
     long countByDateRange(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Select("SELECT COUNT(*) FROM t_lottery_period")
+    long countAllLotteryPeriods();
+
+    @Select("SELECT id, period, draw_date, front_1, front_2, front_3, front_4, front_5, " +
+            "back_1, back_2, create_time, update_time FROM t_lottery_period " +
+            "ORDER BY draw_date DESC LIMIT #{size} OFFSET #{offset}")
+    @ResultMap("lotteryPeriodMap")
+    List<LotteryPeriod> findAllLotteryPeriodsPaginated(
+            @Param("offset") int offset,
+            @Param("size") int size);
 }

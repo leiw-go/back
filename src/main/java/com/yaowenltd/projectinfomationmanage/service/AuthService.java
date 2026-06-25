@@ -7,11 +7,21 @@ package com.yaowenltd.projectinfomationmanage.service;
 import com.yaowenltd.projectinfomationmanage.model.dto.CurrentUserResponse;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginRequest;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginResponse;
+import com.yaowenltd.projectinfomationmanage.model.dto.RegisterRequest;
+import com.yaowenltd.projectinfomationmanage.model.dto.RegisterResponse;
 
 /**
  * Service interface for authentication operations.
  */
 public interface AuthService {
+
+    /**
+     * Registers a new user.
+     *
+     * @param registerRequest the registration data
+     * @return the registration response
+     */
+    RegisterResponse register(RegisterRequest registerRequest);
 
     /**
      * Authenticates a user with username and password.

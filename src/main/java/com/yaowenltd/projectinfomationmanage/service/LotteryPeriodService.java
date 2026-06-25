@@ -8,6 +8,8 @@
  import com.yaowenltd.projectinfomationmanage.model.dto.MultiplePeriodStatisticsRequest;
  import com.yaowenltd.projectinfomationmanage.model.dto.MultiplePeriodStatisticsResponse;
  import com.yaowenltd.projectinfomationmanage.model.dto.SinglePeriodStatisticsResponse;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageRequest;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
  
  import java.time.LocalDate;
  
@@ -27,6 +29,12 @@
      LotteryPeriodDto findLotteryPeriodById(String id);
  
      List<LotteryPeriodDto> findAllLotteryPeriods();
+
+    /**
+     * Find all lottery periods with pagination.
+     * Results are sorted by drawDate descending.
+     */
+    PageResponse<LotteryPeriodDto> findLotteryPeriodsPaginated(PageRequest pageRequest);
  
      /**
       * Get statistics for a single time range.

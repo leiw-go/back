@@ -6,19 +6,26 @@ package com.yaowenltd.projectinfomationmanage.service.impl;
 
 import com.yaowenltd.projectinfomationmanage.common.JwtUtil;
 import com.yaowenltd.projectinfomationmanage.common.UnauthorizedException;
-import com.yaowenltd.projectinfomationmanage.mapper.UserMapper;
 import com.yaowenltd.projectinfomationmanage.mapper.RoleMapper;
+import com.yaowenltd.projectinfomationmanage.mapper.UserMapper;
+import com.yaowenltd.projectinfomationmanage.mapper.UserRoleMapper;
 import com.yaowenltd.projectinfomationmanage.model.dto.CurrentUserResponse;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginRequest;
 import com.yaowenltd.projectinfomationmanage.model.dto.LoginResponse;
+import com.yaowenltd.projectinfomationmanage.model.dto.RegisterRequest;
+import com.yaowenltd.projectinfomationmanage.model.dto.RegisterResponse;
 import com.yaowenltd.projectinfomationmanage.model.entity.Role;
 import com.yaowenltd.projectinfomationmanage.model.entity.User;
+import com.yaowenltd.projectinfomationmanage.model.entity.UserRole;
 import com.yaowenltd.projectinfomationmanage.service.AuthService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Implementation of AuthService for user authentication.
@@ -26,9 +33,13 @@ import java.util.List;
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    private static final String DEFAULT_USER_ROLE_ID = "550e8400-e29b-41d4-a716-446655440102";
+
     private final UserMapper userMapper;
 
     private final RoleMapper roleMapper;
+
+    private final UserRoleMapper userRoleMapper;
 
     private final JwtUtil jwtUtil;
 
@@ -37,15 +48,65 @@ public class AuthServiceImpl implements AuthService {
     /**
      * Constructs an AuthServiceImpl with required dependencies.
      *
-     * @param userMapper the user mapper
-     * @param roleMapper the role mapper
-     * @param jwtUtil    the JWT utility
+     * @param userMapper     the user mapper
+     * @param roleMapper     the role mapper
+     * @param userRoleMapper the user-role mapper
+     * @param jwtUtil        the JWT utility
      */
-    public AuthServiceImpl(UserMapper userMapper, RoleMapper roleMapper, JwtUtil jwtUtil) {
+    public AuthServiceImpl(UserMapper userMapper, RoleMapper roleMapper,
+                           UserRoleMapper userRoleMapper, JwtUtil jwtUtil) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
+        this.userRoleMapper = userRoleMapper;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Registers a new user with default USER role.
+     *
+     * @param registerRequest the registration data
+     * @return the registration response
+     */
+    @Override
+    @Transactional
+    public RegisterResponse register(RegisterRequest registerRequest) {
+        User existingUser = userMapper.findUserByUsername(registerRequest.getUsername());
+        if (existingUser != null) {
+            throw new IllegalArgumentException("username already exists");
+        }
+
+        User user = new User();
+        String userId = UUID.randomUUID().toString();
+        user.setId(userId);
+        user.setUsername(registerRequest.getUsername());
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        user.setRealName(registerRequest.getRealName());
+        user.setEmail(registerRequest.getEmail());
+        user.setPhone(registerRequest.getPhone());
+        user.setStatus(1);
+        LocalDateTime now = LocalDateTime.now();
+        user.setCreateTime(now);
+        user.setUpdateTime(now);
+
+        userMapper.insertUser(user);
+
+        Role userRole = roleMapper.findRoleById(DEFAULT_USER_ROLE_ID);
+        if (userRole != null) {
+            UserRole ur = new UserRole();
+            ur.setId(UUID.randomUUID().toString());
+            ur.setUserId(userId);
+            ur.setRoleId(DEFAULT_USER_ROLE_ID);
+            ur.setCreateTime(now);
+            userRoleMapper.insertUserRole(ur);
+        }
+
+        RegisterResponse response = new RegisterResponse();
+        response.setId(userId);
+        response.setUsername(registerRequest.getUsername());
+        response.setRealName(registerRequest.getRealName());
+        response.setMessage("user registered successfully");
+        return response;
     }
 
     /**

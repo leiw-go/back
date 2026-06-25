@@ -6,6 +6,8 @@
  
  import com.yaowenltd.projectinfomationmanage.mapper.LotteryPeriodMapper;
  import com.yaowenltd.projectinfomationmanage.model.dto.*;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageRequest;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
  import com.yaowenltd.projectinfomationmanage.model.entity.LotteryPeriod;
  import com.yaowenltd.projectinfomationmanage.service.LotteryPeriodService;
  import org.springframework.stereotype.Service;
@@ -106,6 +108,21 @@
                  .map(this::convertToDto)
                  .collect(Collectors.toList());
      }
+
+    @Override
+    public PageResponse<LotteryPeriodDto> findLotteryPeriodsPaginated(PageRequest pageRequest) {
+        int offset = pageRequest.getOffset();
+        int size = pageRequest.getSize();
+
+        List<LotteryPeriod> periods = lotteryPeriodMapper.findAllLotteryPeriodsPaginated(offset, size);
+        long total = lotteryPeriodMapper.countAllLotteryPeriods();
+
+        List<LotteryPeriodDto> data = periods.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+
+        return new PageResponse<>(data, total, pageRequest.getPage(), pageRequest.getSize());
+    }
  
      @Override
      public SinglePeriodStatisticsResponse getSinglePeriodStatistics(LocalDate startDate, LocalDate endDate) {

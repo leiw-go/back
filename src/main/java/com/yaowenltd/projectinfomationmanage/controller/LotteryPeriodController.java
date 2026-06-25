@@ -6,6 +6,8 @@
  
  import com.yaowenltd.projectinfomationmanage.common.ResponseResult;
  import com.yaowenltd.projectinfomationmanage.model.dto.*;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageRequest;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
  import com.yaowenltd.projectinfomationmanage.service.LotteryPeriodService;
  import io.swagger.v3.oas.annotations.Operation;
  import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,9 +63,12 @@
  
      @GetMapping("/periods")
      @Operation(summary = "查询所有开奖记录", description = "获取所有开奖记录")
-     public ResponseResult<List<LotteryPeriodDto>> getAllPeriods() {
-         List<LotteryPeriodDto> list = lotteryPeriodService.findAllLotteryPeriods();
-         return ResponseResult.success(list);
+    public ResponseResult<PageResponse<LotteryPeriodDto>> getAllPeriods(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        PageRequest pageRequest = new PageRequest(page, size);
+        PageResponse<LotteryPeriodDto> result = lotteryPeriodService.findLotteryPeriodsPaginated(pageRequest);
+        return ResponseResult.success(result);
      }
  
      @GetMapping("/statistics/single")
