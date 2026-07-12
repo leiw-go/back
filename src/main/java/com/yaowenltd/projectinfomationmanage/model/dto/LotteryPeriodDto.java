@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  import java.time.LocalDateTime;
  
  /**
-  * DTO for lottery period CRUD operations.
+  * 彩票期数 CRUD 操作的 DTO.
   */
  @Schema(description = "大乐透开奖记录")
 public class LotteryPeriodDto {

@@ -23,6 +23,9 @@ spring:
         password: ${NACOS_PASSWORD:nacos}
         # Nacos 暂不可用时仍可启动（dev/CI 友好）
         fail-fast: false
+        # 显式开启配置变更推送：Nacos Client 收到 ConfigService 变更后会发 RefreshEvent，
+        # @RefreshScope Bean 接到事件后销毁重建。默认就是 true，这里只是表达意图。
+        refresh-enabled: true
       discovery:
         # 与 config 复用同一组环境变量；Jenkinsfile 仅需在容器 env-file 里写一份
         server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
@@ -47,3 +50,32 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# akshare FastAPI 桥接（见 akshare-service/）。
+#   - 本机开发：Docker compose 把容器 8000 映射到宿主 18000（避开前端 8000 占用）；
+#     Spring Boot 直接走 http://localhost:18000。
+#   - 如果想把 akshare 容器跑在与 Spring Boot 同一个 docker 网络里，
+#     base-url 用 http://akshare-service:8000 即可。
+#   - 生产建议把 base-url 放到 Nacos 配置而不是写死。
+#   - 这俩字段绑到 AkshareServiceProperties 上（@RefreshScope），改完在 Nacos 控制台发
+#     布即可生效，不需要重启（POST /actuator/refresh 手动触发的兜底）。
+akshare:
+  service:
+    base-url: ${AKSHARE_SERVICE_BASE_URL:http://localhost:18000}
+    timeout-ms: 5000
+
+# Actuator 暴露面控制：默认只开 health/info（健康/存活探针），
+# 这里额外开 refresh —— 让运维能在不发重启的前提下强制刷新一次 Nacos 配置。
+management:
+  endpoints:
+    web:
+      exposure:
+        include: refresh,health,info
+  endpoint:
+    refresh:
+      access: read_only     # 默认就是 read_only，显式写出来防止被某个 yaml 关掉
+    health:
+      access: read_only
+  info:
+    env:
+      enabled: false        # 关掉 info/env（暴露太多默认信息，不小心开可能被人扫描）

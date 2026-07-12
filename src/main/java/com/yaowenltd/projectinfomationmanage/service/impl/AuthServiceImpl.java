@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Implementation of AuthService for user authentication.
+ * 用户认证的 Spring 实现.
  */
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -46,12 +46,12 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Constructs an AuthServiceImpl with required dependencies.
+     * 构造 AuthServiceImpl，注入所需依赖.
      *
-     * @param userMapper     the user mapper
-     * @param roleMapper     the role mapper
-     * @param userRoleMapper the user-role mapper
-     * @param jwtUtil        the JWT utility
+     * @param userMapper     用户 Mapper
+     * @param roleMapper     角色 Mapper
+     * @param userRoleMapper 用户-角色 Mapper
+     * @param jwtUtil        JWT 工具类
      */
     public AuthServiceImpl(UserMapper userMapper, RoleMapper roleMapper,
                            UserRoleMapper userRoleMapper, JwtUtil jwtUtil) {
@@ -63,10 +63,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Registers a new user with default USER role.
+     * 注册新用户，并赋予默认 USER 角色.
      *
-     * @param registerRequest the registration data
-     * @return the registration response
+     * @param registerRequest 注册数据
+     * @return 注册响应
      */
     @Override
     @Transactional
@@ -110,11 +110,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Authenticates user and returns JWT token.
+     * 认证用户并返回 JWT 令牌.
      *
-     * @param loginRequest the login credentials
-     * @return the login response with token
-     * @throws UnauthorizedException if credentials are invalid
+     * @param loginRequest 登录凭证
+     * @return 包含令牌的登录响应
+     * @throws UnauthorizedException 当凭证无效时
      */
     @Override
     public LoginResponse login(LoginRequest loginRequest) {
@@ -132,11 +132,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Retrieves the current authenticated user's information including their role code.
+     * 获取当前已认证用户的信息，包括其角色编码.
      *
-     * @param username the username from the JWT token
-     * @return the current user response
-     * @throws UnauthorizedException if the user is not found
+     * @param username 来自 JWT 令牌的用户名
+     * @return 当前用户响应
+     * @throws UnauthorizedException 当未找到用户时
      */
     @Override
     public CurrentUserResponse getCurrentUser(String username) {

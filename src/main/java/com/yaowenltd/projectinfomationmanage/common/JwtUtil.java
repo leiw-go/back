@@ -19,7 +19,7 @@ import java.util.Base64;
 import java.util.Date;
 
 /**
- * Utility class for JWT token generation and validation.
+ * JWT 令牌生成与校验的工具类。
  */
 @Component
 public class JwtUtil {
@@ -31,10 +31,10 @@ public class JwtUtil {
     private final SecretKey secretKey;
 
     /**
-     * Constructs a JwtUtil with the configured secret and expiration.
+     * 用配置的密钥和过期时间构造 JwtUtil。
      *
-     * @param secret     the base64-encoded secret key
-     * @param expiration the token expiration time in milliseconds
+     * @param secret     base64 编码的密钥
+     * @param expiration 令牌过期时间（毫秒）
      */
     public JwtUtil(@Value("${jwt.secret}") String secret,
                    @Value("${jwt.expiration}") long expiration) {
@@ -44,10 +44,10 @@ public class JwtUtil {
     }
 
     /**
-     * Generates a JWT token for the given username.
+     * 为指定用户名生成 JWT 令牌。
      *
-     * @param username the username to embed in the token
-     * @return the generated JWT token string
+     * @param username 嵌入令牌的用户名
+     * @return 生成的 JWT 令牌字符串
      */
     public String generateToken(String username) {
         Date now = new Date();
@@ -62,11 +62,11 @@ public class JwtUtil {
     }
 
     /**
-     * Extracts the username from a JWT token.
+     * 从 JWT 令牌里解析出用户名。
      *
-     * @param token the JWT token
-     * @return the username embedded in the token
-     * @throws JwtException if the token is invalid or expired
+     * @param token JWT 令牌
+     * @return 嵌入令牌的用户名
+     * @throws JwtException 令牌无效或已过期
      */
     public String getUsernameFromToken(String token) {
         Jws<Claims> claimsJws = parseToken(token);
@@ -74,10 +74,10 @@ public class JwtUtil {
     }
 
     /**
-     * Validates a JWT token.
+     * 校验 JWT 令牌是否有效。
      *
-     * @param token the JWT token to validate
-     * @return true if the token is valid, false otherwise
+     * @param token 待校验的 JWT 令牌
+     * @return 令牌有效返回 true，否则返回 false
      */
     public boolean validateToken(String token) {
         try {

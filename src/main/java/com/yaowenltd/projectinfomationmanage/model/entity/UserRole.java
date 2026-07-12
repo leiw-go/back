@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.entity;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing the relationship between users and roles.
+ * 用户与角色的多对多关系实体.
  */
 public class UserRole {
 

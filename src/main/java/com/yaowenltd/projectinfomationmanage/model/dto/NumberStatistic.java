@@ -7,8 +7,8 @@
 import io.swagger.v3.oas.annotations.media.Schema;
  
  /**
-  * Statistic result for a single number within one time range.
-  * Sorted by count descending.
+  * 一个时间区间内单个号码的统计结果.
+  * 按出现次数降序排列.
   */
  @Schema(description = "单号码统计结果")
 public class NumberStatistic implements Comparable<NumberStatistic> {

@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * DTO for login response.
+ * 登录响应的 DTO.
  */
 @Schema(description = "登录响应结果")
 public class LoginResponse {
@@ -22,11 +22,11 @@ public class LoginResponse {
     private String realName;
 
     /**
-     * Constructs a LoginResponse with token, username and real name.
+     * 用 token、用户名和真实姓名构造 LoginResponse.
      *
-     * @param token    the JWT token
-     * @param username the username
-     * @param realName the real name of the user
+     * @param token    JWT 令牌
+     * @param username 用户名
+     * @param realName 用户的真实姓名
      */
     public LoginResponse(String token, String username, String realName) {
         this.token = token;

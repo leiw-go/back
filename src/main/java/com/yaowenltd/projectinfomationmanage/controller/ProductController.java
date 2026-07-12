@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Controller for product information configuration operations.
+ * 负责产品信息配置相关操作的 HTTP 接口.
  */
 @RestController
 @RequestMapping("/api/products")
@@ -25,19 +25,19 @@ public class ProductController {
     private final ProductService productService;
 
     /**
-     * Constructs a ProductController with the given ProductService.
+     * 使用给定的 ProductService 构造 ProductController.
      *
-     * @param productService the product service
+     * @param productService 产品服务
      */
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
     /**
-     * Creates a new product.
+     * 创建一个新产品.
      *
-     * @param productDto the product data
-     * @return the created product
+     * @param productDto 产品数据
+     * @return 已创建的产品
      */
     @PostMapping
     @Operation(summary = "Create product", description = "Create a new product")
@@ -47,11 +47,11 @@ public class ProductController {
     }
 
     /**
-     * Updates an existing product.
+     * 更新已存在的产品.
      *
-     * @param id         the product ID
-     * @param productDto the updated product data
-     * @return the updated product
+     * @param id         产品 ID
+     * @param productDto 更新后的产品数据
+     * @return 更新后的产品
      */
     @PutMapping("/{id}")
     @Operation(summary = "Update product", description = "Update an existing product")
@@ -62,10 +62,10 @@ public class ProductController {
     }
 
     /**
-     * Deletes a product by ID.
+     * 根据 ID 删除产品.
      *
-     * @param id the product ID
-     * @return success response
+     * @param id 产品 ID
+     * @return 成功响应
      */
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete product", description = "Delete a product by ID")
@@ -75,10 +75,10 @@ public class ProductController {
     }
 
     /**
-     * Finds a product by ID.
+     * 根据 ID 查找产品.
      *
-     * @param id the product ID
-     * @return the product data
+     * @param id 产品 ID
+     * @return 产品数据
      */
     @GetMapping("/{id}")
     @Operation(summary = "Get product by ID", description = "Get product details by ID")
@@ -88,9 +88,9 @@ public class ProductController {
     }
 
     /**
-     * Returns all products.
+     * 返回所有产品.
      *
-     * @return list of all products
+     * @return 全部产品列表
      */
     @GetMapping
     @Operation(summary = "List all products", description = "Get all products")

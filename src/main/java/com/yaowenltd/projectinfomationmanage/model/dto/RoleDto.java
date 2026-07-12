@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTO for role information, used for creating and updating roles.
+ * 角色信息的 DTO，用于角色的创建和更新.
  */
 @Schema(description = "角色信息")
 public class RoleDto {

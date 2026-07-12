@@ -11,16 +11,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 /**
- * Configuration for Cross-Origin Resource Sharing (CORS).
- * Allows front-end applications running on different ports to access the API.
+ * 跨域资源共享（CORS）配置.
+ * 允许运行在不同端口的前端应用访问该 API.
  */
 @Configuration
 public class CorsConfig {
 
     /**
-     * Creates a CorsFilter bean that allows cross-origin requests.
+     * 创建允许跨域请求的 CorsFilter Bean.
      *
-     * @return the configured CorsFilter
+     * @return 配置好的 CorsFilter
      */
     @Bean
     public CorsFilter corsFilter() {

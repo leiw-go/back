@@ -9,45 +9,45 @@ import com.yaowenltd.projectinfomationmanage.model.dto.UserDto;
 import java.util.List;
 
 /**
- * Service interface for user management operations.
+ * 服务接口，定义用户管理业务能力.
  */
 public interface UserService {
 
     /**
-     * Creates a new user.
+     * 创建新用户.
      *
-     * @param userDto the user data
-     * @return the created user
+     * @param userDto 用户数据
+     * @return 已创建的用户
      */
     UserDto createUser(UserDto userDto);
 
     /**
-     * Updates an existing user.
+     * 更新已存在的用户.
      *
-     * @param userDto the user data with updates
-     * @return the updated user
+     * @param userDto 包含更新字段的用户数据
+     * @return 更新后的用户
      */
     UserDto updateUser(UserDto userDto);
 
     /**
-     * Deletes a user by ID.
+     * 根据 ID 删除用户.
      *
-     * @param id the user ID
+     * @param id 用户 ID
      */
     void deleteUser(String id);
 
     /**
-     * Finds a user by ID.
+     * 根据 ID 查找用户.
      *
-     * @param id the user ID
-     * @return the user data
+     * @param id 用户 ID
+     * @return 用户数据
      */
     UserDto findUserById(String id);
 
     /**
-     * Returns all users.
+     * 返回所有用户.
      *
-     * @return list of all users
+     * @return 所有用户列表
      */
     List<UserDto> findAllUsers();
 }

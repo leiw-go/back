@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 
 /**
- * DTO for login request.
+ * 登录请求的 DTO.
  */
 @Schema(description = "登录请求参数")
 public class LoginRequest {

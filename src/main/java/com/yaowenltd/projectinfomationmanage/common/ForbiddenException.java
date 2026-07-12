@@ -5,14 +5,14 @@
 package com.yaowenltd.projectinfomationmanage.common;
 
 /**
- * Exception thrown when a user does not have permission to access a resource.
+ * 用户无权限访问资源时抛出的异常。
  */
 public class ForbiddenException extends RuntimeException {
 
     /**
-     * Constructs a ForbiddenException with the specified detail message.
+     * 用指定的详情消息构造 ForbiddenException。
      *
-     * @param message the detail message
+     * @param message 详情消息
      */
     public ForbiddenException(String message) {
         super(message);

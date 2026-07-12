@@ -13,22 +13,22 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for ProjectInfomationManageApplication.
- * 使用 test profile（application-test.yml），不依赖外部 config-server。
+ * ProjectInformationManageApplication 的单元测试类.
+ * 使用 test profile（application-test.yml），不依赖外部 config-server.
  */
 @SpringBootTest
 @ActiveProfiles("test")
 class ProjectInformationManageApplicationTests {
 
     /**
-     * Context loads test.
+     * Spring 上下文能正常加载的冒烟测试.
      */
     @Test
     void contextLoads() {
     }
 
     /**
-     * Tests that BCryptPasswordEncoder.matches returns true for the correct password.
+     * 验证 BCryptPasswordEncoder.matches 在密码正确时返回 true.
      */
     @Test
     void testPasswordEncoderMatchesWithCorrectPassword() {
@@ -46,7 +46,7 @@ class ProjectInformationManageApplicationTests {
     }
 
     /**
-     * Tests that BCryptPasswordEncoder.matches returns false for an incorrect password.
+     * 验证 BCryptPasswordEncoder.matches 在密码错误时返回 false.
      */
     @Test
     void testPasswordEncoderMatchesWithIncorrectPassword() {

@@ -5,7 +5,7 @@
 package com.yaowenltd.projectinfomationmanage.model.dto;
 
 /**
- * Pagination request parameters.
+ * 分页请求参数.
  */
 public class PageRequest {
 
@@ -38,7 +38,7 @@ public class PageRequest {
     }
 
     /**
-     * Calculate the offset for database query.
+     * 计算数据库查询的偏移量.
      */
     public int getOffset() {
         return (page - 1) * size;

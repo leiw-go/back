@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  import java.time.LocalDate;
  
  /**
-  * DTO for single period statistics request.
+  * 单期统计请求的 DTO.
   */
  @Schema(description = "单时间段号码统计请求")
 public class SinglePeriodStatisticsRequest {

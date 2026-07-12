@@ -11,40 +11,40 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * Mapper interface for UserRole database operations.
+ * 用户角色关系数据库操作的 Mapper 接口.
  */
 @Mapper
 public interface UserRoleMapper {
 
     /**
-     * Inserts a new user-role relationship.
+     * 新增一条用户角色关系.
      *
-     * @param userRole the user-role relationship to insert
-     * @return the number of affected rows
+     * @param userRole 待插入的用户角色关系
+     * @return 受影响的行数
      */
     int insertUserRole(UserRole userRole);
 
     /**
-     * Deletes user-role relationships by user ID.
+     * 根据用户 ID 删除用户角色关系.
      *
-     * @param userId the user ID
-     * @return the number of affected rows
+     * @param userId 用户 ID
+     * @return 受影响的行数
      */
     int deleteUserRoleByUserId(@Param("userId") String userId);
 
     /**
-     * Deletes user-role relationships by role ID.
+     * 根据角色 ID 删除用户角色关系.
      *
-     * @param roleId the role ID
-     * @return the number of affected rows
+     * @param roleId 角色 ID
+     * @return 受影响的行数
      */
     int deleteUserRoleByRoleId(@Param("roleId") String roleId);
 
     /**
-     * Finds user-role relationships by user ID.
+     * 根据用户 ID 查询用户角色关系.
      *
-     * @param userId the user ID
-     * @return list of user-role relationships
+     * @param userId 用户 ID
+     * @return 用户角色关系列表
      */
     List<UserRole> findUserRolesByUserId(@Param("userId") String userId);
 }

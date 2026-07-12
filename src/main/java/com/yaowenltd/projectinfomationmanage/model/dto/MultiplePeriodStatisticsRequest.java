@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  import java.util.List;
  
  /**
-  * Request for multi-period statistics comparison.
+  * 多期统计对比的请求.
   */
  @Schema(description = "多时间段号码统计对比请求")
 public class MultiplePeriodStatisticsRequest {

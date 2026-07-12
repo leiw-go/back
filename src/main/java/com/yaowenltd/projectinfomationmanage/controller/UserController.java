@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Controller for user management operations.
+ * 负责用户管理相关操作的 HTTP 接口.
  */
 @RestController
 @RequestMapping("/api/users")
@@ -25,19 +25,19 @@ public class UserController {
     private final UserService userService;
 
     /**
-     * Constructs a UserController with the given UserService.
+     * 使用给定的 UserService 构造 UserController.
      *
-     * @param userService the user service
+     * @param userService 用户服务
      */
     public UserController(UserService userService) {
         this.userService = userService;
     }
 
     /**
-     * Creates a new user.
+     * 创建一个新用户.
      *
-     * @param userDto the user data
-     * @return the created user
+     * @param userDto 用户数据
+     * @return 已创建的用户
      */
     @PostMapping
     @Operation(summary = "Create user", description = "Create a new user")
@@ -47,11 +47,11 @@ public class UserController {
     }
 
     /**
-     * Updates an existing user.
+     * 更新已存在的用户.
      *
-     * @param id      the user ID
-     * @param userDto the updated user data
-     * @return the updated user
+     * @param id      用户 ID
+     * @param userDto 更新后的用户数据
+     * @return 更新后的用户
      */
     @PutMapping("/{id}")
     @Operation(summary = "Update user", description = "Update an existing user")
@@ -62,10 +62,10 @@ public class UserController {
     }
 
     /**
-     * Deletes a user by ID.
+     * 根据 ID 删除用户.
      *
-     * @param id the user ID
-     * @return success response
+     * @param id 用户 ID
+     * @return 成功响应
      */
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete user", description = "Delete a user by ID")
@@ -75,10 +75,10 @@ public class UserController {
     }
 
     /**
-     * Finds a user by ID.
+     * 根据 ID 查找用户.
      *
-     * @param id the user ID
-     * @return the user data
+     * @param id 用户 ID
+     * @return 用户数据
      */
     @GetMapping("/{id}")
     @Operation(summary = "Get user by ID", description = "Get user details by ID")
@@ -88,9 +88,9 @@ public class UserController {
     }
 
     /**
-     * Returns all users.
+     * 返回所有用户.
      *
-     * @return list of all users
+     * @return 全部用户列表
      */
     @GetMapping
     @Operation(summary = "List all users", description = "Get all registered users")

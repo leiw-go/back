@@ -1,9 +1,9 @@
- /*
+/*
  * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  */
- 
+
  package com.yaowenltd.projectinfomationmanage.service.impl;
- 
+
  import com.yaowenltd.projectinfomationmanage.mapper.LotteryPeriodMapper;
  import com.yaowenltd.projectinfomationmanage.model.dto.*;
 import com.yaowenltd.projectinfomationmanage.model.dto.PageRequest;
@@ -11,34 +11,34 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
  import com.yaowenltd.projectinfomationmanage.model.entity.LotteryPeriod;
  import com.yaowenltd.projectinfomationmanage.service.LotteryPeriodService;
  import org.springframework.stereotype.Service;
- 
+
  import java.math.BigDecimal;
  import java.math.RoundingMode;
  import java.time.LocalDate;
  import java.time.LocalDateTime;
  import java.util.*;
  import java.util.stream.Collectors;
- 
+
  /**
-  * Implementation of LotteryPeriodService.
+  * LotteryPeriodService 的 Spring 实现.
   */
  @Service
  public class LotteryPeriodServiceImpl implements LotteryPeriodService {
- 
+
      private static final int MAX_FRONT_NUMBER = 35;
- 
+
      private static final int MAX_BACK_NUMBER = 12;
- 
+
      private static final int FRONT_NUMBERS_PER_PERIOD = 5;
- 
+
      private static final int BACK_NUMBERS_PER_PERIOD = 2;
- 
+
      private final LotteryPeriodMapper lotteryPeriodMapper;
- 
+
      public LotteryPeriodServiceImpl(LotteryPeriodMapper lotteryPeriodMapper) {
          this.lotteryPeriodMapper = lotteryPeriodMapper;
      }
- 
+
      @Override
      public LotteryPeriodDto createLotteryPeriod(LotteryPeriodDto dto) {
          LotteryPeriod entity = new LotteryPeriod();
@@ -56,22 +56,22 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
          LocalDateTime now = LocalDateTime.now();
          entity.setCreateTime(now);
          entity.setUpdateTime(now);
- 
+
          lotteryPeriodMapper.insertLotteryPeriod(entity);
- 
+
          dto.setId(id);
          dto.setCreateTime(now);
          dto.setUpdateTime(now);
          return dto;
      }
- 
+
      @Override
      public LotteryPeriodDto updateLotteryPeriod(LotteryPeriodDto dto) {
          LotteryPeriod existing = lotteryPeriodMapper.findLotteryPeriodById(dto.getId());
          if (existing == null) {
              throw new IllegalArgumentException("开奖记录不存在");
          }
- 
+
          LotteryPeriod entity = new LotteryPeriod();
          entity.setId(dto.getId());
          entity.setPeriod(dto.getPeriod());
@@ -83,16 +83,16 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
          entity.setFront5(dto.getFront5());
          entity.setBack1(dto.getBack1());
          entity.setBack2(dto.getBack2());
- 
+
          lotteryPeriodMapper.updateLotteryPeriod(entity);
          return dto;
      }
- 
+
      @Override
      public void deleteLotteryPeriod(String id) {
          lotteryPeriodMapper.deleteLotteryPeriodById(id);
      }
- 
+
      @Override
      public LotteryPeriodDto findLotteryPeriodById(String id) {
          LotteryPeriod entity = lotteryPeriodMapper.findLotteryPeriodById(id);
@@ -101,7 +101,7 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
          }
          return convertToDto(entity);
      }
- 
+
      @Override
      public List<LotteryPeriodDto> findAllLotteryPeriods() {
          return lotteryPeriodMapper.findAllLotteryPeriods().stream()
@@ -123,47 +123,47 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
 
         return new PageResponse<>(data, total, pageRequest.getPage(), pageRequest.getSize());
     }
- 
+
      @Override
      public SinglePeriodStatisticsResponse getSinglePeriodStatistics(LocalDate startDate, LocalDate endDate) {
          List<LotteryPeriod> periods = lotteryPeriodMapper.findLotteryPeriodsByDateRange(startDate, endDate);
          long totalPeriods = periods.size();
- 
+
          List<NumberStatistic> frontStats = computeNumberStatistics(periods, true);
          List<NumberStatistic> backStats = computeNumberStatistics(periods, false);
- 
+
          Collections.sort(frontStats);
          Collections.sort(backStats);
- 
+
          SinglePeriodStatisticsResponse response = new SinglePeriodStatisticsResponse();
          response.setTotalPeriods(totalPeriods);
          response.setFrontAreaStats(frontStats);
          response.setBackAreaStats(backStats);
          return response;
      }
- 
+
      @Override
      public MultiplePeriodStatisticsResponse getMultiplePeriodStatistics(
              List<MultiplePeriodStatisticsRequest.PeriodRange> ranges) {
- 
+
          List<MultiplePeriodStatisticsResponse.PeriodSummary> periodSummaries = new ArrayList<>();
          Map<String, Long> periodTotalPeriodsMap = new LinkedHashMap<>();
          Map<String, Map<String, Long>> frontCountsByLabel = new LinkedHashMap<>();
          Map<String, Map<String, Long>> backCountsByLabel = new LinkedHashMap<>();
- 
+
          for (MultiplePeriodStatisticsRequest.PeriodRange range : ranges) {
              String label = range.getLabel();
              List<LotteryPeriod> periods = lotteryPeriodMapper.findLotteryPeriodsByDateRange(
                      range.getStartDate(), range.getEndDate());
              long periodsInRange = periods.size();
              periodTotalPeriodsMap.put(label, periodsInRange);
- 
+
              MultiplePeriodStatisticsResponse.PeriodSummary summary =
                      new MultiplePeriodStatisticsResponse.PeriodSummary();
              summary.setLabel(label);
              summary.setTotalPeriods(periodsInRange);
              periodSummaries.add(summary);
- 
+
              Map<Integer, Long> frontFreq = new HashMap<>();
              Map<Integer, Long> backFreq = new HashMap<>();
              for (LotteryPeriod p : periods) {
@@ -175,7 +175,7 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
                  increment(backFreq, p.getBack1());
                  increment(backFreq, p.getBack2());
              }
- 
+
              for (int i = 1; i <= MAX_FRONT_NUMBER; i++) {
                  String numStr = formatNumber(i);
                  frontCountsByLabel.computeIfAbsent(numStr, k -> new LinkedHashMap<>())
@@ -187,21 +187,21 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
                          .put(label, backFreq.getOrDefault(i, 0L));
              }
          }
- 
+
          List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> frontStats =
                  buildMultiPeriodStats(frontCountsByLabel, periodTotalPeriodsMap, FRONT_NUMBERS_PER_PERIOD);
          List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> backStats =
                  buildMultiPeriodStats(backCountsByLabel, periodTotalPeriodsMap, BACK_NUMBERS_PER_PERIOD);
          Collections.sort(frontStats);
          Collections.sort(backStats);
- 
+
          MultiplePeriodStatisticsResponse response = new MultiplePeriodStatisticsResponse();
          response.setPeriods(periodSummaries);
          response.setFrontAreaStats(frontStats);
          response.setBackAreaStats(backStats);
          return response;
      }
- 
+
      private List<NumberStatistic> computeNumberStatistics(List<LotteryPeriod> periods, boolean isFront) {
          Map<Integer, Long> freq = new HashMap<>();
          for (LotteryPeriod p : periods) {
@@ -216,7 +216,7 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
                  increment(freq, p.getBack2());
              }
          }
- 
+
          int maxNumber = isFront ? MAX_FRONT_NUMBER : MAX_BACK_NUMBER;
          List<NumberStatistic> result = new ArrayList<>();
          for (int i = 1; i <= maxNumber; i++) {
@@ -224,55 +224,55 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
          }
          return result;
      }
- 
+
      private void increment(Map<Integer, Long> map, int key) {
          map.put(key, map.getOrDefault(key, 0L) + 1);
      }
- 
+
      private String formatNumber(int num) {
          return num < 10 ? "0" + num : String.valueOf(num);
      }
- 
+
      private List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> buildMultiPeriodStats(
              Map<String, Map<String, Long>> countsByLabel,
              Map<String, Long> periodTotalPeriodsMap,
              int numbersPerPeriod) {
          List<MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic> result = new ArrayList<>();
- 
+
          for (Map.Entry<String, Map<String, Long>> entry : countsByLabel.entrySet()) {
              MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic stat =
                      new MultiplePeriodStatisticsResponse.MultiPeriodNumberStatistic();
              stat.setNumber(entry.getKey());
              stat.setCounts(entry.getValue());
- 
+
              Map<String, String> probabilities = new LinkedHashMap<>();
              long total = 0L;
- 
+
              for (Map.Entry<String, Long> countEntry : entry.getValue().entrySet()) {
                  String label = countEntry.getKey();
                  long count = countEntry.getValue();
                  long totalPeriods = periodTotalPeriodsMap.getOrDefault(label, 0L);
                  total += count;
- 
+
                  String probability = calculateProbability(count, totalPeriods, numbersPerPeriod);
                  probabilities.put(label, probability);
              }
- 
+
              stat.setProbabilities(probabilities);
              stat.setTotalCount(total);
- 
+
              result.add(stat);
          }
          return result;
      }
- 
+
      /**
-      * Calculates the probability as a percentage string with 2 decimal places rounded.
+      * 计算概率，返回保留两位小数的百分比字符串.
       *
-      * @param appearances        number of times the number appeared in the period
-      * @param totalPeriods       total number of periods in the time range
-      * @param numbersPerPeriod  number of numbers drawn per period
-      * @return probability as percentage string with % suffix, e.g., "5.60%"
+      * @param appearances        该号码在期次中的出现次数
+      * @param totalPeriods       时间范围内的期次总数
+      * @param numbersPerPeriod   每期开奖号码数量
+      * @return 带 % 后缀的百分比字符串，例如 "5.60%"
       */
      private String calculateProbability(long appearances, long totalPeriods, int numbersPerPeriod) {
          long totalPossibleDraws = totalPeriods * numbersPerPeriod;
@@ -284,7 +284,7 @@ import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
                  .divide(BigDecimal.valueOf(totalPossibleDraws), 2, RoundingMode.HALF_UP);
          return probability.setScale(2, RoundingMode.HALF_UP).toPlainString() + "%";
      }
- 
+
      private LotteryPeriodDto convertToDto(LotteryPeriod entity) {
          LotteryPeriodDto dto = new LotteryPeriodDto();
          dto.setId(entity.getId());

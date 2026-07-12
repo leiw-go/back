@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Controller for user authentication (login/logout) and current user info.
+ * 负责用户认证（登录/登出）与当前用户信息查询的 HTTP 接口.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -38,10 +38,10 @@ public class AuthController {
     private final JwtUtil jwtUtil;
 
     /**
-     * Constructs an AuthController with the given AuthService and JwtUtil.
+     * 使用给定的 AuthService 和 JwtUtil 构造 AuthController.
      *
-     * @param authService the authentication service
-     * @param jwtUtil     the JWT utility for parsing tokens
+     * @param authService 认证服务
+     * @param jwtUtil     用于解析 Token 的 JWT 工具类
      */
     public AuthController(AuthService authService, JwtUtil jwtUtil) {
         this.authService = authService;
@@ -49,10 +49,10 @@ public class AuthController {
     }
 
     /**
-     * Registers a new user with default USER role.
+     * 注册一个新用户，并赋予默认的 USER 角色.
      *
-     * @param registerRequest the registration data
-     * @return the registration response
+     * @param registerRequest 注册数据
+     * @return 注册响应
      */
     @PostMapping("/register")
     @SkipAuth
@@ -63,10 +63,10 @@ public class AuthController {
     }
 
     /**
-     * Authenticates a user and returns a JWT token.
+     * 校验用户身份并返回 JWT Token.
      *
-     * @param loginRequest the login credentials
-     * @return the response containing token and user info
+     * @param loginRequest 登录凭据
+     * @return 包含 Token 与用户信息的响应
      */
     @PostMapping("/login")
     @SkipAuth
@@ -77,11 +77,10 @@ public class AuthController {
     }
 
     /**
-     * Retrieves the current authenticated user's information by parsing the JWT token
-     * from the Authorization header.
+     * 通过解析 Authorization 请求头中的 JWT Token，获取当前已登录用户的信息.
      *
-     * @param authorization the Authorization header containing the Bearer token
-     * @return the response containing current user details and role
+     * @param authorization 包含 Bearer Token 的 Authorization 请求头
+     * @return 包含当前用户详情与角色的响应
      */
     @GetMapping("/currentUser")
     @Operation(summary = "Get current user", description = "Get current authenticated user information")

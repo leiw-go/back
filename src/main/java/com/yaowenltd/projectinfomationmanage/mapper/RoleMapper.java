@@ -11,55 +11,55 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * Mapper interface for Role database operations.
+ * 角色数据库操作的 Mapper 接口.
  */
 @Mapper
 public interface RoleMapper {
 
     /**
-     * Inserts a new role.
+     * 新增一个角色.
      *
-     * @param role the role to insert
-     * @return the number of affected rows
+     * @param role 待插入的角色
+     * @return 受影响的行数
      */
     int insertRole(Role role);
 
     /**
-     * Updates an existing role.
+     * 更新已有角色.
      *
-     * @param role the role with updated information
-     * @return the number of affected rows
+     * @param role 带有更新信息的角色
+     * @return 受影响的行数
      */
     int updateRole(Role role);
 
     /**
-     * Deletes a role by ID.
+     * 根据 ID 删除角色.
      *
-     * @param id the role ID
-     * @return the number of affected rows
+     * @param id 角色 ID
+     * @return 受影响的行数
      */
     int deleteRoleById(@Param("id") String id);
 
     /**
-     * Finds a role by ID.
+     * 根据 ID 查询角色.
      *
-     * @param id the role ID
-     * @return the role, or null if not found
+     * @param id 角色 ID
+     * @return 角色实体，未找到返回 null
      */
     Role findRoleById(@Param("id") String id);
 
     /**
-     * Returns all roles.
+     * 查询所有角色.
      *
-     * @return list of all roles
+     * @return 角色列表
      */
     List<Role> findAllRoles();
 
     /**
-     * Finds roles by user ID.
+     * 根据用户 ID 查询角色列表.
      *
-     * @param userId the user ID
-     * @return list of roles assigned to the user
+     * @param userId 用户 ID
+     * @return 分配给该用户的角色列表
      */
     List<Role> findRolesByUserId(@Param("userId") String userId);
 }

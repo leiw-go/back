@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing a product in the system.
+ * 系统商品实体.
  */
 public class Product {
 

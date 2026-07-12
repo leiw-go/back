@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.config;
 import java.lang.annotation.*;
 
 /**
- * Annotation to mark methods or classes that should skip authentication.
+ * 用于标记无需进行认证校验的方法或类的注解.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

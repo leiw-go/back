@@ -5,14 +5,14 @@
 package com.yaowenltd.projectinfomationmanage.common;
 
 /**
- * Exception thrown when a user is not authenticated.
+ * 用户未通过身份认证时抛出的异常。
  */
 public class UnauthorizedException extends RuntimeException {
 
     /**
-     * Constructs an UnauthorizedException with the specified detail message.
+     * 用指定的详情消息构造 UnauthorizedException。
      *
-     * @param message the detail message
+     * @param message 详情消息
      */
     public UnauthorizedException(String message) {
         super(message);

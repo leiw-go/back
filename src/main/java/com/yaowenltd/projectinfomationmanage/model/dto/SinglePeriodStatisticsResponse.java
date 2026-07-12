@@ -9,8 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
  import java.util.List;
  
  /**
-  * Response for single period statistics.
-  * frontAreaStats and backAreaStats are sorted by occurrence count descending.
+  * 单期统计的响应.
+  * frontAreaStats 与 backAreaStats 按出现次数降序排列.
   */
  @Schema(description = "单时间段号码统计结果")
 public class SinglePeriodStatisticsResponse {

@@ -10,7 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTO for user registration request.
+ * 用户注册请求的 DTO.
  */
 @Schema(description = "用户注册请求参数")
 public class RegisterRequest {

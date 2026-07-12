@@ -16,8 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Global exception handler for intercepting and handling exceptions
- * thrown during controller method execution.
+ * 全局异常处理器，捕获并处理 Controller 方法抛出的各类异常。
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -25,10 +24,10 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
-     * Handles MethodArgumentNotValidException (validation errors).
+     * 处理方法参数校验异常（{@code @Valid} 校验失败）。
      *
-     * @param exception the validation exception
-     * @return the response result with validation error messages
+     * @param exception 校验异常
+     * @return 含校验错误信息的响应体
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseResult<Void> handleValidationException(MethodArgumentNotValidException exception) {
@@ -43,10 +42,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles IllegalArgumentException.
+     * 处理非法参数异常。
      *
-     * @param exception the illegal argument exception
-     * @return the response result with error message
+     * @param exception 非法参数异常
+     * @return 含错误信息的响应体
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseResult<Void> handleIllegalArgumentException(IllegalArgumentException exception) {
@@ -55,10 +54,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles UnauthorizedException.
+     * 处理未认证异常。
      *
-     * @param exception the unauthorized exception
-     * @return the response result with unauthorized message
+     * @param exception 未认证异常
+     * @return 含未认证提示的响应体
      */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseResult<Void> handleUnauthorizedException(UnauthorizedException exception) {
@@ -68,10 +67,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles ForbiddenException.
+     * 处理无权限异常。
      *
-     * @param exception the forbidden exception
-     * @return the response result with forbidden message
+     * @param exception 无权限异常
+     * @return 含禁止访问提示的响应体
      */
     @ExceptionHandler(ForbiddenException.class)
     public ResponseResult<Void> handleForbiddenException(ForbiddenException exception) {
@@ -80,10 +79,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles all unhandled RuntimeException.
+     * 处理所有未匹配到的 {@link RuntimeException}。
      *
-     * @param exception the runtime exception
-     * @return the response result with error message
+     * @param exception 运行时异常
+     * @return 含错误信息的响应体
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseResult<Void> handleRuntimeException(RuntimeException exception) {
@@ -92,10 +91,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles all remaining exceptions.
+     * 处理所有剩余的非运行时异常。
      *
-     * @param exception the exception
-     * @return the response result with error message
+     * @param exception 异常
+     * @return 含错误信息的响应体
      */
     @ExceptionHandler(Exception.class)
     public ResponseResult<Void> handleException(Exception exception) {

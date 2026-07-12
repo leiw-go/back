@@ -1,0 +1,16 @@
+{
+  "properties": [
+    {
+      "name": "akshare.service.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL of the akshare FastAPI bridge. Override with env AKSHARE_SERVICE_BASE_URL.",
+      "defaultValue": "http://localhost:8000"
+    },
+    {
+      "name": "akshare.service.timeout-ms",
+      "type": "java.lang.Long",
+      "description": "Connect / read timeout for outbound HTTP calls (ms).",
+      "defaultValue": 5000
+    }
+  ]
+}

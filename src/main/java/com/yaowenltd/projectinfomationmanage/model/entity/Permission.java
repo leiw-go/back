@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.entity;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing a permission in the system.
+ * 系统权限实体.
  */
 public class Permission {
 

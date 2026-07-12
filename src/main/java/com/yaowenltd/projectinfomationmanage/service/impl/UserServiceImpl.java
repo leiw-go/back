@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Implementation of UserService for user management.
+ * 用户管理的 Spring 实现.
  */
 @Service
 public class UserServiceImpl implements UserService {
@@ -33,10 +33,10 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Constructs a UserServiceImpl with required dependencies.
+     * 构造 UserServiceImpl，注入所需依赖.
      *
-     * @param userMapper     the user mapper
-     * @param userRoleMapper the user-role mapper
+     * @param userMapper     用户 Mapper
+     * @param userRoleMapper 用户-角色 Mapper
      */
     public UserServiceImpl(UserMapper userMapper, UserRoleMapper userRoleMapper) {
         this.userMapper = userMapper;
@@ -45,10 +45,10 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Creates a new user with an encrypted password.
+     * 创建新用户，并对密码进行加密.
      *
-     * @param userDto the user data
-     * @return the created user
+     * @param userDto 用户数据
+     * @return 已创建的用户
      */
     @Override
     @Transactional
@@ -87,10 +87,10 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Updates an existing user.
+     * 更新已存在的用户.
      *
-     * @param userDto the user data with updates
-     * @return the updated user
+     * @param userDto 包含更新字段的用户数据
+     * @return 更新后的用户
      */
     @Override
     @Transactional
@@ -131,9 +131,9 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Deletes a user by ID.
+     * 根据 ID 删除用户.
      *
-     * @param id the user ID
+     * @param id 用户 ID
      */
     @Override
     @Transactional
@@ -143,10 +143,10 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Finds a user by ID.
+     * 根据 ID 查找用户.
      *
-     * @param id the user ID
-     * @return the user data
+     * @param id 用户 ID
+     * @return 用户数据
      */
     @Override
     public UserDto findUserById(String id) {
@@ -158,9 +158,9 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Returns all users.
+     * 返回所有用户.
      *
-     * @return list of all users
+     * @return 所有用户列表
      */
     @Override
     public List<UserDto> findAllUsers() {

@@ -11,47 +11,47 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * Mapper interface for Product database operations.
+ * 产品数据库操作的 Mapper 接口.
  */
 @Mapper
 public interface ProductMapper {
 
     /**
-     * Inserts a new product.
+     * 新增一个产品.
      *
-     * @param product the product to insert
-     * @return the number of affected rows
+     * @param product 待插入的产品
+     * @return 受影响的行数
      */
     int insertProduct(Product product);
 
     /**
-     * Updates an existing product.
+     * 更新已有产品.
      *
-     * @param product the product with updated information
-     * @return the number of affected rows
+     * @param product 带有更新信息的产品
+     * @return 受影响的行数
      */
     int updateProduct(Product product);
 
     /**
-     * Deletes a product by ID.
+     * 根据 ID 删除产品.
      *
-     * @param id the product ID
-     * @return the number of affected rows
+     * @param id 产品 ID
+     * @return 受影响的行数
      */
     int deleteProductById(@Param("id") String id);
 
     /**
-     * Finds a product by ID.
+     * 根据 ID 查询产品.
      *
-     * @param id the product ID
-     * @return the product, or null if not found
+     * @param id 产品 ID
+     * @return 产品实体，未找到返回 null
      */
     Product findProductById(@Param("id") String id);
 
     /**
-     * Returns all products.
+     * 查询所有产品.
      *
-     * @return list of all products
+     * @return 产品列表
      */
     List<Product> findAllProducts();
 }

@@ -11,32 +11,32 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * Mapper interface for RolePermission database operations.
+ * 角色权限关系数据库操作的 Mapper 接口.
  */
 @Mapper
 public interface RolePermissionMapper {
 
     /**
-     * Inserts a new role-permission relationship.
+     * 新增一条角色权限关系.
      *
-     * @param rolePermission the role-permission relationship to insert
-     * @return the number of affected rows
+     * @param rolePermission 待插入的角色权限关系
+     * @return 受影响的行数
      */
     int insertRolePermission(RolePermission rolePermission);
 
     /**
-     * Deletes role-permission relationships by role ID.
+     * 根据角色 ID 删除角色权限关系.
      *
-     * @param roleId the role ID
-     * @return the number of affected rows
+     * @param roleId 角色 ID
+     * @return 受影响的行数
      */
     int deleteRolePermissionByRoleId(@Param("roleId") String roleId);
 
     /**
-     * Finds role-permission relationships by role ID.
+     * 根据角色 ID 查询角色权限关系.
      *
-     * @param roleId the role ID
-     * @return list of role-permission relationships
+     * @param roleId 角色 ID
+     * @return 角色权限关系列表
      */
     List<RolePermission> findRolePermissionsByRoleId(@Param("roleId") String roleId);
 }

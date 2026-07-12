@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Controller for role and permission management operations.
+ * 负责角色与权限管理相关操作的 HTTP 接口.
  */
 @RestController
 @RequestMapping("/api/roles")
@@ -26,19 +26,19 @@ public class RoleController {
     private final RoleService roleService;
 
     /**
-     * Constructs a RoleController with the given RoleService.
+     * 使用给定的 RoleService 构造 RoleController.
      *
-     * @param roleService the role service
+     * @param roleService 角色服务
      */
     public RoleController(RoleService roleService) {
         this.roleService = roleService;
     }
 
     /**
-     * Creates a new role.
+     * 创建一个新角色.
      *
-     * @param roleDto the role data
-     * @return the created role
+     * @param roleDto 角色数据
+     * @return 已创建的角色
      */
     @PostMapping
     @Operation(summary = "Create role", description = "Create a new role")
@@ -48,11 +48,11 @@ public class RoleController {
     }
 
     /**
-     * Updates an existing role.
+     * 更新已存在的角色.
      *
-     * @param id      the role ID
-     * @param roleDto the updated role data
-     * @return the updated role
+     * @param id      角色 ID
+     * @param roleDto 更新后的角色数据
+     * @return 更新后的角色
      */
     @PutMapping("/{id}")
     @Operation(summary = "Update role", description = "Update an existing role")
@@ -63,10 +63,10 @@ public class RoleController {
     }
 
     /**
-     * Deletes a role by ID.
+     * 根据 ID 删除角色.
      *
-     * @param id the role ID
-     * @return success response
+     * @param id 角色 ID
+     * @return 成功响应
      */
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete role", description = "Delete a role by ID")
@@ -76,10 +76,10 @@ public class RoleController {
     }
 
     /**
-     * Finds a role by ID.
+     * 根据 ID 查找角色.
      *
-     * @param id the role ID
-     * @return the role data
+     * @param id 角色 ID
+     * @return 角色数据
      */
     @GetMapping("/{id}")
     @Operation(summary = "Get role by ID", description = "Get role details by ID")
@@ -89,9 +89,9 @@ public class RoleController {
     }
 
     /**
-     * Returns all roles.
+     * 返回所有角色.
      *
-     * @return list of all roles
+     * @return 全部角色列表
      */
     @GetMapping
     @Operation(summary = "List all roles", description = "Get all roles")
@@ -101,9 +101,9 @@ public class RoleController {
     }
 
     /**
-     * Returns all permissions.
+     * 返回所有权限.
      *
-     * @return list of all permissions
+     * @return 全部权限列表
      */
     @GetMapping("/permissions")
     @Operation(summary = "List all permissions", description = "Get all permissions")

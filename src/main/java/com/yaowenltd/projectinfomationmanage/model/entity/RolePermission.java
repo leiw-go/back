@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.entity;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing the relationship between roles and permissions.
+ * 角色与权限的多对多关系实体.
  */
 public class RolePermission {
 

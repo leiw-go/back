@@ -14,15 +14,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Swagger / OpenAPI configuration for API documentation.
+ * 用于 API 文档的 Swagger / OpenAPI 配置.
  */
 @Configuration
 public class SwaggerConfig {
 
     /**
-     * Creates the OpenAPI bean with API metadata and security scheme.
+     * 创建带有 API 元数据和安全方案的 OpenAPI Bean.
      *
-     * @return the configured OpenAPI instance
+     * @return 配置好的 OpenAPI 实例
      */
     @Bean
     public OpenAPI customOpenApi() {

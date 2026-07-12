@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTO for user information, used for creating and updating users.
+ * 用户信息的 DTO，用于用户的创建和更新.
  */
 @Schema(description = "用户信息")
 public class UserDto {

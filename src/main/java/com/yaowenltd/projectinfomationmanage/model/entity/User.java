@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.entity;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing a system user.
+ * 系统用户实体.
  */
 public class User {
 

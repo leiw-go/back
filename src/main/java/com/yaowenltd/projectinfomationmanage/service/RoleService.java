@@ -10,52 +10,52 @@ import com.yaowenltd.projectinfomationmanage.model.entity.Permission;
 import java.util.List;
 
 /**
- * Service interface for role and permission management operations.
+ * 服务接口，定义角色与权限管理业务能力.
  */
 public interface RoleService {
 
     /**
-     * Creates a new role.
+     * 创建新角色.
      *
-     * @param roleDto the role data
-     * @return the created role
+     * @param roleDto 角色数据
+     * @return 已创建的角色
      */
     RoleDto createRole(RoleDto roleDto);
 
     /**
-     * Updates an existing role.
+     * 更新已存在的角色.
      *
-     * @param roleDto the role data with updates
-     * @return the updated role
+     * @param roleDto 包含更新字段的角色数据
+     * @return 更新后的角色
      */
     RoleDto updateRole(RoleDto roleDto);
 
     /**
-     * Deletes a role by ID.
+     * 根据 ID 删除角色.
      *
-     * @param id the role ID
+     * @param id 角色 ID
      */
     void deleteRole(String id);
 
     /**
-     * Finds a role by ID.
+     * 根据 ID 查找角色.
      *
-     * @param id the role ID
-     * @return the role data
+     * @param id 角色 ID
+     * @return 角色数据
      */
     RoleDto findRoleById(String id);
 
     /**
-     * Returns all roles.
+     * 返回所有角色.
      *
-     * @return list of all roles
+     * @return 所有角色列表
      */
     List<RoleDto> findAllRoles();
 
     /**
-     * Returns all permissions.
+     * 返回所有权限.
      *
-     * @return list of all permissions
+     * @return 所有权限列表
      */
     List<Permission> findAllPermissions();
 }

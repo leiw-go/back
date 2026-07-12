@@ -11,55 +11,55 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * Mapper interface for User database operations.
+ * 用户数据库操作的 Mapper 接口.
  */
 @Mapper
 public interface UserMapper {
 
     /**
-     * Inserts a new user.
+     * 新增一个用户.
      *
-     * @param user the user to insert
-     * @return the number of affected rows
+     * @param user 待插入的用户
+     * @return 受影响的行数
      */
     int insertUser(User user);
 
     /**
-     * Updates an existing user.
+     * 更新已有用户.
      *
-     * @param user the user with updated information
-     * @return the number of affected rows
+     * @param user 带有更新信息的用户
+     * @return 受影响的行数
      */
     int updateUser(User user);
 
     /**
-     * Deletes a user by ID.
+     * 根据 ID 删除用户.
      *
-     * @param id the user ID
-     * @return the number of affected rows
+     * @param id 用户 ID
+     * @return 受影响的行数
      */
     int deleteUserById(@Param("id") String id);
 
     /**
-     * Finds a user by ID.
+     * 根据 ID 查询用户.
      *
-     * @param id the user ID
-     * @return the user, or null if not found
+     * @param id 用户 ID
+     * @return 用户实体，未找到返回 null
      */
     User findUserById(@Param("id") String id);
 
     /**
-     * Finds a user by username.
+     * 根据用户名查询用户.
      *
-     * @param username the username
-     * @return the user, or null if not found
+     * @param username 用户名
+     * @return 用户实体，未找到返回 null
      */
     User findUserByUsername(@Param("username") String username);
 
     /**
-     * Returns all active users.
+     * 查询所有启用的用户.
      *
-     * @return list of all users
+     * @return 用户列表
      */
     List<User> findAllUsers();
 }

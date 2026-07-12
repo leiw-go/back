@@ -9,45 +9,45 @@ import com.yaowenltd.projectinfomationmanage.model.dto.ProductDto;
 import java.util.List;
 
 /**
- * Service interface for product management operations.
+ * 服务接口，定义产品管理业务能力.
  */
 public interface ProductService {
 
     /**
-     * Creates a new product.
+     * 创建新产品.
      *
-     * @param productDto the product data
-     * @return the created product
+     * @param productDto 产品数据
+     * @return 已创建的产品
      */
     ProductDto createProduct(ProductDto productDto);
 
     /**
-     * Updates an existing product.
+     * 更新已存在的产品.
      *
-     * @param productDto the product data with updates
-     * @return the updated product
+     * @param productDto 包含更新字段的产品数据
+     * @return 更新后的产品
      */
     ProductDto updateProduct(ProductDto productDto);
 
     /**
-     * Deletes a product by ID.
+     * 根据 ID 删除产品.
      *
-     * @param id the product ID
+     * @param id 产品 ID
      */
     void deleteProduct(String id);
 
     /**
-     * Finds a product by ID.
+     * 根据 ID 查找产品.
      *
-     * @param id the product ID
-     * @return the product data
+     * @param id 产品 ID
+     * @return 产品数据
      */
     ProductDto findProductById(String id);
 
     /**
-     * Returns all products.
+     * 返回所有产品.
      *
-     * @return list of all products
+     * @return 所有产品列表
      */
     List<ProductDto> findAllProducts();
 }

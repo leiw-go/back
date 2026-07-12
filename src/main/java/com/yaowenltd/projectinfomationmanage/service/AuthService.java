@@ -11,31 +11,31 @@ import com.yaowenltd.projectinfomationmanage.model.dto.RegisterRequest;
 import com.yaowenltd.projectinfomationmanage.model.dto.RegisterResponse;
 
 /**
- * Service interface for authentication operations.
+ * 服务接口，定义认证业务能力.
  */
 public interface AuthService {
 
     /**
-     * Registers a new user.
+     * 注册新用户.
      *
-     * @param registerRequest the registration data
-     * @return the registration response
+     * @param registerRequest 注册数据
+     * @return 注册响应
      */
     RegisterResponse register(RegisterRequest registerRequest);
 
     /**
-     * Authenticates a user with username and password.
+     * 使用用户名和密码认证用户.
      *
-     * @param loginRequest the login credentials
-     * @return the login response containing token and user info
+     * @param loginRequest 登录凭证
+     * @return 包含令牌与用户信息的登录响应
      */
     LoginResponse login(LoginRequest loginRequest);
 
     /**
-     * Retrieves the current authenticated user's information.
+     * 获取当前已认证用户的信息.
      *
-     * @param username the username from the JWT token
-     * @return the current user response containing user details and role
+     * @param username 来自 JWT 令牌的用户名
+     * @return 包含用户详情与角色的当前用户响应
      */
     CurrentUserResponse getCurrentUser(String username);
 }

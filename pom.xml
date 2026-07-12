@@ -114,6 +114,13 @@
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
 
+        <!-- Actuator — exposes /actuator/refresh (manual refresh trigger) + /actuator/health -->
+        <!-- Spring Boot 3.x moved from spring-boot-starter-actuator; version inherits from parent -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

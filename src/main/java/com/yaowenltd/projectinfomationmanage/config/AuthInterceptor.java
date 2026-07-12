@@ -17,7 +17,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.lang.reflect.Method;
 
 /**
- * Interceptor for authenticating and authorizing API requests using JWT tokens.
+ * 基于 JWT 令牌对 API 请求进行认证与授权的拦截器.
  */
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
@@ -33,21 +33,21 @@ public class AuthInterceptor implements HandlerInterceptor {
     private final JwtUtil jwtUtil;
 
     /**
-     * Constructs an AuthInterceptor with the given JwtUtil.
+     * 使用指定的 JwtUtil 构造 AuthInterceptor.
      *
-     * @param jwtUtil the JWT utility for token validation
+     * @param jwtUtil 用于令牌校验的 JWT 工具
      */
     public AuthInterceptor(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
 
     /**
-     * Pre-handles the request by validating the JWT token.
+     * 通过校验 JWT 令牌对请求进行前置处理.
      *
-     * @param request  the HTTP request
-     * @param response the HTTP response
-     * @param handler  the handler object
-     * @return true if the request should proceed, false otherwise
+     * @param request  HTTP 请求
+     * @param response HTTP 响应
+     * @param handler  处理器对象
+     * @return 请求应继续执行时返回 true，否则返回 false
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {

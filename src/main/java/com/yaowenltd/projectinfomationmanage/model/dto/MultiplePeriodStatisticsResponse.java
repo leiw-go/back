@@ -10,8 +10,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
  import java.util.Map;
  
  /**
-  * Response for multi-period statistics comparison.
-  * frontAreaStats and backAreaStats are sorted by totalCount descending.
+  * 多期统计对比的响应.
+  * frontAreaStats 与 backAreaStats 按 totalCount 降序排列.
   */
  @Schema(description = "多时间段号码统计对比结果")
 public class MultiplePeriodStatisticsResponse {
@@ -50,7 +50,7 @@ public class MultiplePeriodStatisticsResponse {
      }
  
      /**
-      * Summary of a single time range period.
+      * 单个时间段的概要.
       */
      @Schema(description = "时间段概要")
     public static class PeriodSummary {

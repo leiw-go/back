@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Implementation of ProductService for product management.
+ * 产品管理的 Spring 实现.
  */
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -24,19 +24,19 @@ public class ProductServiceImpl implements ProductService {
     private final ProductMapper productMapper;
 
     /**
-     * Constructs a ProductServiceImpl with required dependencies.
+     * 构造 ProductServiceImpl，注入所需依赖.
      *
-     * @param productMapper the product mapper
+     * @param productMapper 产品 Mapper
      */
     public ProductServiceImpl(ProductMapper productMapper) {
         this.productMapper = productMapper;
     }
 
     /**
-     * Creates a new product.
+     * 创建新产品.
      *
-     * @param productDto the product data
-     * @return the created product
+     * @param productDto 产品数据
+     * @return 已创建的产品
      */
     @Override
     public ProductDto createProduct(ProductDto productDto) {
@@ -62,10 +62,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * Updates an existing product.
+     * 更新已存在的产品.
      *
-     * @param productDto the product data with updates
-     * @return the updated product
+     * @param productDto 包含更新字段的产品数据
+     * @return 更新后的产品
      */
     @Override
     public ProductDto updateProduct(ProductDto productDto) {
@@ -88,9 +88,9 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * Deletes a product by ID.
+     * 根据 ID 删除产品.
      *
-     * @param id the product ID
+     * @param id 产品 ID
      */
     @Override
     public void deleteProduct(String id) {
@@ -98,10 +98,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * Finds a product by ID.
+     * 根据 ID 查找产品.
      *
-     * @param id the product ID
-     * @return the product data
+     * @param id 产品 ID
+     * @return 产品数据
      */
     @Override
     public ProductDto findProductById(String id) {
@@ -113,9 +113,9 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * Returns all products.
+     * 返回所有产品.
      *
-     * @return list of all products
+     * @return 所有产品列表
      */
     @Override
     public List<ProductDto> findAllProducts() {

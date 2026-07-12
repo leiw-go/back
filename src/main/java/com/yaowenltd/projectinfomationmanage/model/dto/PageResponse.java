@@ -7,9 +7,9 @@ package com.yaowenltd.projectinfomationmanage.model.dto;
 import java.util.List;
 
 /**
- * Pagination response wrapper.
+ * 分页响应包装器.
  *
- * @param <T> the type of data items
+ * @param <T> 数据项类型
  */
 public class PageResponse<T> {
 

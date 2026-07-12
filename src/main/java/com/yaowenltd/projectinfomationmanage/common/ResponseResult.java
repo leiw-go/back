@@ -10,9 +10,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Wrapper class for HTTP response results.
+ * 统一 HTTP 响应结果的包装类。
  *
- * @param <T> the type of data in the response
+ * @param <T> 响应数据类型
  */
 public class ResponseResult<T> {
 
@@ -25,17 +25,17 @@ public class ResponseResult<T> {
     private List<String> errors;
 
     /**
-     * Default constructor.
+     * 默认构造器（用于 JSON 反序列化等场景）。
      */
     public ResponseResult() {
     }
 
     /**
-     * Constructs a response result with code, message and data.
+     * 用状态码、消息、数据构造一个响应结果。
      *
-     * @param code    the HTTP status code
-     * @param message the response message
-     * @param data    the response data
+     * @param code    HTTP 状态码
+     * @param message 响应消息
+     * @param data    响应数据
      */
     public ResponseResult(int code, String message, T data) {
         this.code = code;
@@ -44,43 +44,43 @@ public class ResponseResult<T> {
     }
 
     /**
-     * Creates a success response with data.
+     * 创建一个带数据的成功响应。
      *
-     * @param data the response data
-     * @param <T>  the type of data
-     * @return the response result
+     * @param data 响应数据
+     * @param <T>  数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> success(T data) {
         return new ResponseResult<>(HttpStatus.OK.value(), "success", data);
     }
 
     /**
-     * Creates a success response without data.
+     * 创建一个不带数据的成功响应。
      *
-     * @param <T> the type of data
-     * @return the response result
+     * @param <T> 数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> success() {
         return new ResponseResult<>(HttpStatus.OK.value(), "success", null);
     }
 
     /**
-     * Creates a created response with data.
+     * 创建一个带数据的已创建（201）响应。
      *
-     * @param data the response data
-     * @param <T>  the type of data
-     * @return the response result
+     * @param data 响应数据
+     * @param <T>  数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> created(T data) {
         return new ResponseResult<>(HttpStatus.CREATED.value(), "created", data);
     }
 
     /**
-     * Creates a bad request error response.
+     * 创建一个错误请求（400）响应。
      *
-     * @param message the error message
-     * @param <T>     the type of data
-     * @return the response result
+     * @param message 错误消息
+     * @param <T>     数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> badRequest(String message) {
         ResponseResult<T> result = new ResponseResult<>(HttpStatus.BAD_REQUEST.value(), message, null);
@@ -89,11 +89,11 @@ public class ResponseResult<T> {
     }
 
     /**
-     * Creates an unauthorized error response.
+     * 创建一个未认证（401）响应。
      *
-     * @param message the error message
-     * @param <T>     the type of data
-     * @return the response result
+     * @param message 错误消息
+     * @param <T>     数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> unauthorized(String message) {
         ResponseResult<T> result = new ResponseResult<>(HttpStatus.UNAUTHORIZED.value(), message, null);
@@ -102,11 +102,11 @@ public class ResponseResult<T> {
     }
 
     /**
-     * Creates a forbidden error response.
+     * 创建一个禁止访问（403）响应。
      *
-     * @param message the error message
-     * @param <T>     the type of data
-     * @return the response result
+     * @param message 错误消息
+     * @param <T>     数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> forbidden(String message) {
         ResponseResult<T> result = new ResponseResult<>(HttpStatus.FORBIDDEN.value(), message, null);
@@ -115,11 +115,11 @@ public class ResponseResult<T> {
     }
 
     /**
-     * Creates a not found error response.
+     * 创建一个资源未找到（404）响应。
      *
-     * @param message the error message
-     * @param <T>     the type of data
-     * @return the response result
+     * @param message 错误消息
+     * @param <T>     数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> notFound(String message) {
         ResponseResult<T> result = new ResponseResult<>(HttpStatus.NOT_FOUND.value(), message, null);
@@ -128,11 +128,11 @@ public class ResponseResult<T> {
     }
 
     /**
-     * Creates an internal server error response.
+     * 创建一个服务器内部错误（500）响应。
      *
-     * @param message the error message
-     * @param <T>     the type of data
-     * @return the response result
+     * @param message 错误消息
+     * @param <T>     数据类型
+     * @return 响应结果
      */
     public static <T> ResponseResult<T> error(String message) {
         ResponseResult<T> result = new ResponseResult<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), message, null);

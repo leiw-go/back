@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * DTO for product information, used for creating and updating products.
+ * 商品信息的 DTO，用于商品的创建和更新.
  */
 @Schema(description = "产品信息")
 public class ProductDto {

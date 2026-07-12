@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * DTO for user registration response.
+ * 用户注册响应的 DTO.
  */
 @Schema(description = "用户注册响应结果")
 public class RegisterResponse {

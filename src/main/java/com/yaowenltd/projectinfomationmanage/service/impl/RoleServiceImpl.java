@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Implementation of RoleService for role and permission management.
+ * 角色与权限管理的 Spring 实现.
  */
 @Service
 public class RoleServiceImpl implements RoleService {
@@ -36,12 +36,12 @@ public class RoleServiceImpl implements RoleService {
     private final UserRoleMapper userRoleMapper;
 
     /**
-     * Constructs a RoleServiceImpl with required dependencies.
+     * 构造 RoleServiceImpl，注入所需依赖.
      *
-     * @param roleMapper           the role mapper
-     * @param permissionMapper     the permission mapper
-     * @param rolePermissionMapper the role-permission mapper
-     * @param userRoleMapper       the user-role mapper
+     * @param roleMapper           角色 Mapper
+     * @param permissionMapper     权限 Mapper
+     * @param rolePermissionMapper 角色-权限 Mapper
+     * @param userRoleMapper       用户-角色 Mapper
      */
     public RoleServiceImpl(RoleMapper roleMapper, PermissionMapper permissionMapper,
                            RolePermissionMapper rolePermissionMapper, UserRoleMapper userRoleMapper) {
@@ -52,10 +52,10 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * Creates a new role with permissions.
+     * 创建新角色并绑定权限.
      *
-     * @param roleDto the role data
-     * @return the created role
+     * @param roleDto 角色数据
+     * @return 已创建的角色
      */
     @Override
     @Transactional
@@ -91,10 +91,10 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * Updates an existing role.
+     * 更新已存在的角色.
      *
-     * @param roleDto the role data with updates
-     * @return the updated role
+     * @param roleDto 包含更新字段的角色数据
+     * @return 更新后的角色
      */
     @Override
     @Transactional
@@ -130,9 +130,9 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * Deletes a role by ID.
+     * 根据 ID 删除角色.
      *
-     * @param id the role ID
+     * @param id 角色 ID
      */
     @Override
     @Transactional
@@ -143,10 +143,10 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * Finds a role by ID.
+     * 根据 ID 查找角色.
      *
-     * @param id the role ID
-     * @return the role data
+     * @param id 角色 ID
+     * @return 角色数据
      */
     @Override
     public RoleDto findRoleById(String id) {
@@ -158,9 +158,9 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * Returns all roles.
+     * 返回所有角色.
      *
-     * @return list of all roles
+     * @return 所有角色列表
      */
     @Override
     public List<RoleDto> findAllRoles() {
@@ -173,9 +173,9 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * Returns all permissions.
+     * 返回所有权限.
      *
-     * @return list of all permissions
+     * @return 所有权限列表
      */
     @Override
     public List<Permission> findAllPermissions() {

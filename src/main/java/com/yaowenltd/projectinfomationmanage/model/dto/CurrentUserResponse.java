@@ -7,8 +7,8 @@ package com.yaowenltd.projectinfomationmanage.model.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * DTO for the current authenticated user response.
- * Returned by the GET /api/auth/currentUser endpoint.
+ * 当前已认证用户响应的 DTO.
+ * 由 GET /api/auth/currentUser 端点返回.
  */
 @Schema(description = "当前登录用户信息")
 public class CurrentUserResponse {
@@ -33,7 +33,7 @@ public class CurrentUserResponse {
     private Integer status;
 
     /**
-     * Default constructor.
+     * 默认构造器（用于 JSON 反序列化等场景）.
      */
     public CurrentUserResponse() {
     }

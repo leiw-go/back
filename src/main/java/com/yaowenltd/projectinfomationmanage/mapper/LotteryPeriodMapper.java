@@ -1,4 +1,4 @@
- /*
+/*
  * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  */
 /*
@@ -14,7 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Mapper interface for LotteryPeriod database operations.
+ * 彩票期数数据库操作的 Mapper 接口.
  */
 @Mapper
 public interface LotteryPeriodMapper {

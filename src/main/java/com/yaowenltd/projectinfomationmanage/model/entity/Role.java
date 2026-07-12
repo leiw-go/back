@@ -7,7 +7,7 @@ package com.yaowenltd.projectinfomationmanage.model.entity;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing a role in the system.
+ * 系统角色实体.
  */
 public class Role {
 
