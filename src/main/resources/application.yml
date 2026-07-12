@@ -4,19 +4,36 @@ server:
 spring:
   application:
     name: ProjectInfomationManage
-  datasource:
-    url: jdbc:mysql://localhost:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
-#    url: jdbc:mysql://localhost:13306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: Root@123456
-#    password: 123456
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:sql/schema.sql
-      data-locations: classpath:sql/data.sql,classpath:sql/data-user.sql
-      continue-on-error: true
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  # Spring Cloud Alibaba 2022+ 需要显式 import Nacos 配置
+  # dataId 必须带 file-extension 后缀，因为 file-extension 不会自动拼接到 import 中的 dataId
+  config:
+    import: "optional:nacos:ProjectInfomationManage-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}"
+  # 敏感配置（datasource / jwt / sql.init）由 Nacos 提供；
+  # 默认 dataId 约定：${spring.application.name}-${spring.profiles.active}.yaml
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yaml
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        # Nacos 暂不可用时仍可启动（dev/CI 友好）
+        fail-fast: false
+      discovery:
+        # 与 config 复用同一组环境变量；Jenkinsfile 仅需在容器 env-file 里写一份
+        server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        # Dev / 本地默认 register 本实例；test profile 在 application-test.yml 关闭
+        register-enabled: ${NACOS_DISCOVERY_REGISTER_ENABLED:true}
+        # Nacos 不可达时不阻塞启动，依赖后续重连
+        fail-fast: false
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -30,7 +47,3 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
-
-jwt:
-  secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==
-  expiration: 86400000

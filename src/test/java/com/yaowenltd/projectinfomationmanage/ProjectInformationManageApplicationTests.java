@@ -8,13 +8,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for ProjectInfomationManageApplication.
+ * 使用 test profile（application-test.yml），不依赖外部 config-server。
  */
 @SpringBootTest
+@ActiveProfiles("test")
 class ProjectInformationManageApplicationTests {
 
     /**
