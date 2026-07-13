@@ -45,17 +45,25 @@ pipeline {
             steps {
                 sh """
                     set -eux
-                    echo "==> 验证本机 Nacos (${params.NACOS_HOST}:${params.NACOS_PORT}) 可达"
-                    # 优先走 8848（同机部署），build agent 上 localhost 即可
+                    # Jenkins agent 如果在容器里跑，localhost 指的是容器自己，
+                    # 必须用 host.docker.internal（默认）或宿主机 IP 访问 Nacos。
+                    echo "==> 验证 Nacos (${params.NACOS_HOST}:${params.NACOS_PORT}) 可达"
                     for i in \$(seq 1 15); do
-                        if curl -fsS http://localhost:${params.NACOS_PORT}/nacos/ >/dev/null 2>&1; then
+                        if curl -fsS "http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos/" >/dev/null 2>&1; then
                             echo "==> nacos ready after \${i} attempts"
                             exit 0
                         fi
                         echo "==> waiting for nacos (\$i/15)..."
                         sleep 2
                     done
-                    echo "!! 本机未检测到 Nacos，请先在 ${params.NACOS_PORT} 启动 Nacos"
+                    echo "!! 未检测到 Nacos @ ${params.NACOS_HOST}:${params.NACOS_PORT}"
+                    echo "   排查："
+                    echo "     1) docker ps | grep nacos       # 容器在跑吗？"
+                    echo "     2) docker port nacos            # 8848/9848 映射出来了吗？"
+                    echo "     3) docker logs --tail 50 nacos  # 启动日志里有报错吗？"
+                    echo "     4) 容器内: docker exec nacos curl http://localhost:8848/nacos/"
+                    echo "     5) Jenkins 容器内: curl -v http://host.docker.internal:8848/nacos/"
+                    echo "   修好后重跑，或把 NACOS_HOST 改成宿主机 IP（绕过 host.docker.internal）"
                     exit 1
                 """
             }
@@ -73,7 +81,7 @@ pipeline {
                     GROUP='DEFAULT_GROUP'
 
                     # 发布配置
-                    curl -fsS -X POST "http://localhost:${params.NACOS_PORT}/nacos/v1/cs/configs" \\
+                    curl -fsS -X POST "http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos/v1/cs/configs" \\
                         -u '${params.NACOS_USER}:${params.NACOS_PASSWORD}' \\
                         --data-urlencode "dataId=\${DATA_ID}" \\
                         --data-urlencode "group=\${GROUP}" \\
@@ -83,7 +91,7 @@ pipeline {
 
                     # 读回验证
                     echo '==> verifying...'
-                    curl -fsS "http://localhost:${params.NACOS_PORT}/nacos/v1/cs/configs?dataId=\${DATA_ID}&group=\${GROUP}" \\
+                    curl -fsS "http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos/v1/cs/configs?dataId=\${DATA_ID}&group=\${GROUP}" \\
                         -u '${params.NACOS_USER}:${params.NACOS_PASSWORD}' | head -10
                 """
             }
