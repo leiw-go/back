@@ -22,8 +22,9 @@ pipeline {
         string(name: 'NACOS_USER',    defaultValue: 'nacosadmin', description: 'Nacos 用户名')
         password(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9', description: 'Nacos 密码')
 
-        // 所有服务所在的 docker 网络（docker network ls 查看）
-        string(name: 'NETWORK_NAME',  defaultValue: 'deploy-net', description: 'docker network 名')
+        // 所有服务所在的 docker 网络（docker network ls 查看）。缺省 deploy-net；
+        // Jenkins 在"Build with Parameters"里若被清空,这里兜底回 deploy-net
+        string(name: 'NETWORK_NAME',  defaultValue: 'deploy-net', description: 'docker 网络名(留空回退到 deploy-net)')
 
         // 配置发布（可选）
         string(name: 'CONFIG_REPO_DIR', defaultValue: '',      description: '本地 YAML 目录，留空跳过')
@@ -77,6 +78,8 @@ pipeline {
             steps {
                 sh '''
                     set +x
+                    # 兜底:如果 NETWORK_NAME 被清空,回退到 deploy-net(deploy-backend.sh 内部还会再兜一次)
+                    : "${NETWORK_NAME:=deploy-net}"
                     bash scripts/deploy-backend.sh \
                         "$BACKEND_NAME" "$BACKEND_PORT" "$PROFILE" \
                         "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD" \

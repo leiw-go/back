@@ -1,19 +1,24 @@
 #!/bin/bash
 # deploy-backend.sh — 启动/重启后端容器
 # Usage: bash scripts/deploy-backend.sh <name> <port> <profile> <nacos_host> <nacos_port> <nacos_user> <nacos_pass> <network> <image>
+#   <network>: 选填,缺省 deploy-net;不存在则自动 docker network create
 set -eu
 
 BACKEND_NAME="${1:?usage: deploy-backend.sh <name> <port> <profile> <nacos_host> <nacos_port> <nacos_user> <nacos_pass> <network> <image>}"
-BACKEND_PORT="${2:?...}"
-PROFILE="${3:?...}"
-NACOS_HOST="${4:?...}"
-NACOS_PORT="${5:?...}"
-NACOS_USER="${6:?...}"
-NACOS_PASS="${7:?...}"
-NETWORK_NAME="${8:?docker network name is required}"
-BACKEND_IMAGE="${9:?...}"
+BACKEND_PORT="${2:?backend port is required}"
+PROFILE="${3:?profile is required}"
+NACOS_HOST="${4:?nacos host is required}"
+NACOS_PORT="${5:?nacos port is required}"
+NACOS_USER="${6:?nacos username is required}"
+NACOS_PASS="${7:?nacos password is required}"
+NETWORK_NAME="${8:-deploy-net}"   # 缺省 deploy-net(老 Jenkins 任务清空该参数时不再报错)
+BACKEND_IMAGE="${9:?backend image is required (e.g. leiw-go/back:latest)}"
 
-# ---- network 参数 ----
+# ---- network:不存在则自动创建 ----
+if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+    echo "==> network '$NETWORK_NAME' not found, creating..."
+    docker network create "$NETWORK_NAME"
+fi
 NETWORK_ARGS=(--network "$NETWORK_NAME")
 echo "==> joining network: $NETWORK_NAME"
 
