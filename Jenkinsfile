@@ -44,27 +44,86 @@ pipeline {
         stage('1. Check Nacos') {
             steps {
                 sh """
-                    set -eux
-                    # Jenkins agent 如果在容器里跑，localhost 指的是容器自己，
-                    # 必须用 host.docker.internal（默认）或宿主机 IP 访问 Nacos。
-                    echo "==> 验证 Nacos (${params.NACOS_HOST}:${params.NACOS_PORT}) 可达"
-                    for i in \$(seq 1 15); do
-                        if curl -fsS "http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos/" >/dev/null 2>&1; then
-                            echo "==> nacos ready after \${i} attempts"
-                            exit 0
+                    set +e   # 整个 stage 用 set +e，避免诊断命令失败导致中途退出
+                    echo '======================================================'
+                    echo '   Nacos connectivity diagnostics'
+                    echo "   target: ${params.NACOS_HOST}:${params.NACOS_PORT}"
+                    echo '======================================================'
+
+                    # --- A. 当前 build agent 的网络身份 ---
+                    echo
+                    echo '---- [A] 自身网络信息 ----'
+                    echo '$ hostname       :' \$(hostname)
+                    echo '$ cat /etc/hosts :'
+                    cat /etc/hosts | sed 's/^/    /'
+                    echo '$ ip addr (摘录) :'
+                    ip -4 addr show 2>/dev/null | grep -E 'inet |^[0-9]+:' | sed 's/^/    /' || echo '    (ip 命令不可用)'
+                    echo '$ ip route       :'
+                    ip route 2>/dev/null | sed 's/^/    /' || echo '    (ip route 不可用)'
+
+                    # --- B. DNS 解析 ---
+                    echo
+                    echo '---- [B] DNS 解析 ----'
+                    for h in host.docker.internal gateway.docker.internal localhost; do
+                        ip_of_h=\$(getent hosts "\$h" 2>/dev/null | awk '{print \$1}' | head -1)
+                        if [ -n "\$ip_of_h" ]; then
+                            echo "    \$h -> \$ip_of_h"
+                        else
+                            echo "    \$h -> (无法解析)"
                         fi
-                        echo "==> waiting for nacos (\$i/15)..."
-                        sleep 2
                     done
-                    echo "!! 未检测到 Nacos @ ${params.NACOS_HOST}:${params.NACOS_PORT}"
-                    echo "   排查："
-                    echo "     1) docker ps | grep nacos       # 容器在跑吗？"
-                    echo "     2) docker port nacos            # 8848/9848 映射出来了吗？"
-                    echo "     3) docker logs --tail 50 nacos  # 启动日志里有报错吗？"
-                    echo "     4) 容器内: docker exec nacos curl http://localhost:8848/nacos/"
-                    echo "     5) Jenkins 容器内: curl -v http://host.docker.internal:8848/nacos/"
-                    echo "   修好后重跑，或把 NACOS_HOST 改成宿主机 IP（绕过 host.docker.internal）"
-                    exit 1
+
+                    # --- C. Nacos 容器（在 Jenkins 容器里能不能直接看到 docker）---
+                    echo
+                    echo '---- [C] 宿主机 / 容器侧的 nacos 状态 ----'
+                    if command -v docker >/dev/null 2>&1; then
+                        echo '    docker 可用，列出 nacos 相关容器：'
+                        docker ps -a --filter name=nacos --format '    {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1 | sed 's/^/    /'
+                        echo '    端口映射:'
+                        docker port nacos 2>&1 | sed 's/^/    /'
+                        echo '    最近 20 行日志:'
+                        docker logs --tail 20 nacos 2>&1 | sed 's/^/    /'
+                    else
+                        echo '    docker 命令不可用 —— Jenkins agent 不在能管 docker 的容器里'
+                        echo '    这种情况下 ${params.NACOS_HOST} 必须用宿主机 IP（不是 host.docker.internal）'
+                    fi
+
+                    # --- D. 实际打 Nacos（verbose，输出每个失败原因）---
+                    echo
+                    echo '---- [D] 直接 curl Nacos ----'
+                    echo "    curl -v --max-time 5 http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos/"
+                    curl -v --max-time 5 "http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos/" 2>&1 | sed 's/^/    /'
+                    CURL_EXIT=\$?
+
+                    # --- E. 如果 host.docker.internal 走不通，列几个候选 IP 再扫一遍 ---
+                    echo
+                    echo '---- [E] 候选地址扫描 ----'
+                    CANDIDATES="host.docker.internal gateway.docker.internal localhost 127.0.0.1"
+                    # 从路由表里把 default gateway 拎出来当候选
+                    GW=\$(ip route 2>/dev/null | awk '/default/ {print \$3; exit}')
+                    [ -n "\$GW" ] && CANDIDATES="\$CANDIDATES \$GW"
+                    for h in \$CANDIDATES; do
+                        RESULT=\$(curl -s -o /dev/null -w '%{http_code} (%{time_total}s)' \\
+                                       --max-time 3 "http://\$h:${params.NACOS_PORT}/nacos/" 2>&1)
+                        echo "    http://\$h:${params.NACOS_PORT}/nacos/  ->  \$RESULT"
+                    done
+
+                    # --- F. 端口层探测（看 8848/9848 是不是至少 TCP 能连上）---
+                    echo
+                    echo '---- [F] TCP 端口探测 ----'
+                    for h in host.docker.internal gateway.docker.internal localhost 127.0.0.1 \$GW; do
+                        [ -z "\$h" ] && continue
+                        if timeout 3 bash -c "</dev/tcp/\$h/${params.NACOS_PORT}" 2>/dev/null; then
+                            echo "    \$h:${params.NACOS_PORT}    TCP OK"
+                        else
+                            echo "    \$h:${params.NACOS_PORT}    TCP closed/timeout"
+                        fi
+                    done
+
+                    echo
+                    echo '======================================================'
+                    echo "   curl 主目标退出码: \$CURL_EXIT"
+                    echo '======================================================'
                 """
             }
         }
