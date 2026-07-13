@@ -20,10 +20,10 @@ pipeline {
         string(name: 'NACOS_HOST',    defaultValue: 'nacos',   description: 'Nacos 主机名')
         string(name: 'NACOS_PORT',    defaultValue: '8848',    description: 'Nacos HTTP 端口')
         string(name: 'NACOS_USER',    defaultValue: 'nacosadmin', description: 'Nacos 用户名')
-        string(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9', description: 'Nacos 密码')
+        password(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9', description: 'Nacos 密码')
 
         // 所有服务所在的 docker 网络（docker network ls 查看）
-        string(name: 'NETWORK_NAME',  defaultValue: '',        description: 'docker network 名')
+        string(name: 'NETWORK_NAME',  defaultValue: 'deploy-net', description: 'docker network 名')
 
         // 配置发布（可选）
         string(name: 'CONFIG_REPO_DIR', defaultValue: '',      description: '本地 YAML 目录，留空跳过')
@@ -42,14 +42,23 @@ pipeline {
 
         stage('1. Check Nacos') {
             steps {
-                sh "bash scripts/check-nacos.sh '${params.NACOS_HOST}' '${params.NACOS_PORT}' '${params.NACOS_USER}' '${params.NACOS_PASSWORD}'"
+                sh '''
+                    set +x
+                    bash scripts/check-nacos.sh \
+                        "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD"
+                '''
             }
         }
 
         stage('2. Publish Config to Nacos') {
             when { expression { return params.CONFIG_REPO_DIR?.trim() } }
             steps {
-                sh "bash scripts/publish-config.sh '${params.NACOS_HOST}' '${params.NACOS_PORT}' '${params.NACOS_USER}' '${params.NACOS_PASSWORD}' '${params.PROFILE}' '${params.CONFIG_REPO_DIR}'"
+                sh '''
+                    set +x
+                    bash scripts/publish-config.sh \
+                        "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD" \
+                        "$PROFILE" "$CONFIG_REPO_DIR"
+                '''
             }
         }
 
@@ -66,7 +75,13 @@ pipeline {
 
         stage('4. Deploy Backend Container') {
             steps {
-                sh "bash scripts/deploy-backend.sh '${params.BACKEND_NAME}' '${params.BACKEND_PORT}' '${params.PROFILE}' '${params.NACOS_HOST}' '${params.NACOS_PORT}' '${params.NACOS_USER}' '${params.NACOS_PASSWORD}' '${params.NETWORK_NAME}' '${BACKEND_IMAGE}:${params.BACKEND_TAG}'"
+                sh '''
+                    set +x
+                    bash scripts/deploy-backend.sh \
+                        "$BACKEND_NAME" "$BACKEND_PORT" "$PROFILE" \
+                        "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD" \
+                        "$NETWORK_NAME" "${BACKEND_IMAGE}:${BACKEND_TAG}"
+                '''
             }
         }
     }

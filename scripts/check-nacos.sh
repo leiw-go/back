@@ -35,14 +35,36 @@ echo "    [2/2] HTTP 200 OK"
 
 # 凭据校验（可选）
 if [ -n "$NACOS_USER" ] && [ -n "$NACOS_PASS" ]; then
-    LOGIN_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-        -u "${NACOS_USER}:${NACOS_PASS}" \
-        --max-time 5 "http://${NACOS_HOST}:${NACOS_PORT}/nacos/v1/auth/users/login" || echo "000")
-    echo "    [auth] login endpoint HTTP $LOGIN_CODE（200/401/403 都算通）"
-    if [ "$LOGIN_CODE" != "200" ] && [ "$LOGIN_CODE" != "401" ] && [ "$LOGIN_CODE" != "403" ]; then
-        echo "!! 凭据校验异常，请检查 NACOS_USER/NACOS_PASSWORD"
+    LOGIN_BODY=$(mktemp)
+    trap 'rm -f "$LOGIN_BODY"' EXIT
+
+    if ! LOGIN_CODE=$(curl -sS -o "$LOGIN_BODY" -w '%{http_code}' \
+        --max-time 5 \
+        -X POST "http://${NACOS_HOST}:${NACOS_PORT}/nacos/v1/auth/users/login" \
+        --data-urlencode "username=${NACOS_USER}" \
+        --data-urlencode "password=${NACOS_PASS}"); then
+        echo "!! Nacos 登录接口不可达"
         exit 1
     fi
+
+    echo "    [auth] login endpoint HTTP $LOGIN_CODE"
+    case "$LOGIN_CODE" in
+        200)
+            ACCESS_TOKEN=$(sed -n 's/.*"accessToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$LOGIN_BODY")
+            if [ -z "$ACCESS_TOKEN" ]; then
+                echo "!! Nacos 登录成功但响应中没有 accessToken"
+                exit 1
+            fi
+            ;;
+        401|403)
+            echo "!! Nacos 登录失败，请检查 NACOS_USER/NACOS_PASSWORD"
+            exit 1
+            ;;
+        *)
+            echo "!! Nacos 登录接口返回异常状态码: $LOGIN_CODE"
+            exit 1
+            ;;
+    esac
 fi
 
 echo "==> Nacos OK"

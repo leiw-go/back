@@ -10,29 +10,23 @@ NACOS_HOST="${4:?...}"
 NACOS_PORT="${5:?...}"
 NACOS_USER="${6:?...}"
 NACOS_PASS="${7:?...}"
-NETWORK_NAME="${8:-}"
+NETWORK_NAME="${8:?docker network name is required}"
 BACKEND_IMAGE="${9:?...}"
 
 # ---- network 参数 ----
-NETWORK_ARGS=()
-if [ -n "$NETWORK_NAME" ]; then
-    NETWORK_ARGS=(--network "$NETWORK_NAME")
-    echo "==> joining network: $NETWORK_NAME"
-else
-    echo "!! NETWORK_NAME 为空：后端容器会跑在默认 bridge，连不上同网络的 nacos/mysql"
-fi
+NETWORK_ARGS=(--network "$NETWORK_NAME")
+echo "==> joining network: $NETWORK_NAME"
 
 # ---- env 文件（敏感凭据 → 容器内环境变量）----
 ENV_FILE="$(mktemp)"
 trap 'rm -f "$ENV_FILE"' EXIT
 cat > "$ENV_FILE" <<EOF
 SPRING_PROFILES_ACTIVE=${PROFILE}
-SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR=${NACOS_HOST}:${NACOS_PORT}
-SPRING_CLOUD_NACOS_CONFIG_USERNAME=${NACOS_USER}
-SPRING_CLOUD_NACOS_CONFIG_PASSWORD=${NACOS_PASS}
-SPRING_CLOUD_NACOS_CONFIG_NAMESPACE=
-SPRING_CLOUD_NACOS_CONFIG_GROUP=DEFAULT_GROUP
-SPRING_CLOUD_NACOS_CONFIG_FILE_EXTENSION=yaml
+NACOS_SERVER_ADDR=${NACOS_HOST}:${NACOS_PORT}
+NACOS_USERNAME=${NACOS_USER}
+NACOS_PASSWORD=${NACOS_PASS}
+NACOS_NAMESPACE=
+NACOS_GROUP=DEFAULT_GROUP
 TZ=Asia/Shanghai
 EOF
 chmod 600 "$ENV_FILE"
@@ -49,10 +43,8 @@ docker run -d \
     "$BACKEND_IMAGE"
 
 # 确认进了网络
-if [ -n "$NETWORK_NAME" ]; then
-    echo "==> network check:"
-    docker inspect -f '    {{.Name}}  networks: {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$BACKEND_NAME"
-fi
+echo "==> network check:"
+docker inspect -f '    {{.Name}}  networks: {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$BACKEND_NAME"
 
 # ---- 等后端就绪 ----
 echo "==> waiting for backend..."
