@@ -1,8 +1,8 @@
 // ============================================================
 // Jenkinsfile — 部署 Backend 到本机 Docker
-//   - 假设本机已部署好 Nacos（默认端口 8848 / 9848）
-//   - 负责：拉取代码 -> 构建镜像 -> 推送配置到 Nacos -> 启动后端容器
-//   - 后端通过 host.docker.internal:8848 访问宿主上的 Nacos
+//   - 假设 backend / mysql / jenkins / nacos 已在同一 docker user-defined 网络里
+//   - 容器之间用「容器名」互通（Docker 内置 DNS）
+//   - 负责：构建镜像 -> 推送配置到 Nacos -> 启动后端容器（加入同一网络）
 //   - 敏感配置（DB 密码、JWT secret）由 Nacos 提供，不写在 Jenkinsfile
 // ============================================================
 pipeline {
@@ -17,12 +17,24 @@ pipeline {
         string(name: 'BACKEND_PORT',  defaultValue: '8888',    description: '后端宿主机暴露端口')
         string(name: 'BACKEND_NAME',  defaultValue: 'backend', description: '后端容器名')
 
-        // 本机 Nacos（默认端口已经部署好）
-        string(name: 'NACOS_HOST',    defaultValue: 'host.docker.internal',
-               description: 'Nacos 主机（容器内视角）')
+        // 后端容器看到的 Nacos 地址
+        //   所有服务在同一 docker 网络里，用「容器名」即可（Docker 内置 DNS 自动解析）。
+        string(name: 'NACOS_HOST',    defaultValue: 'nacos',
+               description: 'Nacos 主机（后端容器视角）。同网络内直接用容器名 nacos。')
         string(name: 'NACOS_PORT',    defaultValue: '8848',    description: 'Nacos HTTP 端口')
         string(name: 'NACOS_USER',    defaultValue: 'nacosadmin',   description: 'Nacos 用户名')
         string(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9',  description: 'Nacos 密码')
+
+        // Jenkins agent 自己用来 ping Nacos 的地址
+        //   Jenkins 也在同一网络里，所以也直接用容器名。如果 Jenkins 跑在网络外，
+        //   可以改成宿主机网关 IP 或 host.docker.internal（视启动参数而定）。
+        string(name: 'NACOS_CHECK_HOST', defaultValue: 'nacos',
+               description: 'Jenkins agent ping Nacos 用的地址。默认 nacos（同网络）。')
+
+        // 后端容器要加入的 docker 网络（必须和 nacos/mysql 同一个）
+        //   docker network ls 看一下填进去；留空表示不指定 --network（容器跑在默认 bridge，可能连不上 nacos）。
+        string(name: 'NETWORK_NAME',  defaultValue: '',
+               description: 'docker network 名（所有服务所在的网络）。docker network ls 查看。')
 
         // 配置发布：本地 YAML 目录（不入 git，作为 Nacos 的发布源）
         string(name: 'CONFIG_REPO_DIR', defaultValue: '',
@@ -45,7 +57,7 @@ pipeline {
             steps {
                 // 先用 Groovy 把参数绑定成 shell 变量，避免后续在 GString 里写多个 ${params.X}
                 script {
-                    env.NACOS_CHECK_HOST = params.NACOS_HOST
+                    env.NACOS_CHECK_HOST = params.NACOS_CHECK_HOST
                     env.NACOS_CHECK_PORT = params.NACOS_PORT
                     env.NACOS_CHECK_USER = params.NACOS_USER
                     env.NACOS_CHECK_PASS = params.NACOS_PASSWORD
@@ -100,12 +112,14 @@ pipeline {
                     echo '---- [D] 直接 curl Nacos ----'
                     echo "    curl -v --max-time 5 http://${NACOS_CHECK_HOST}:${NACOS_CHECK_PORT}/nacos/"
                     curl -v --max-time 5 "http://${NACOS_CHECK_HOST}:${NACOS_CHECK_PORT}/nacos/" 2>&1 | sed 's/^/    /'
-                    CURL_EXIT=$?
+                    # 注意：管道后 $? 是 sed 的退出码，必须用 PIPESTATUS[0] 拿 curl 的
+                    CURL_EXIT=${PIPESTATUS[0]}
 
                     # --- E. 候选地址扫描 ---
                     echo
                     echo '---- [E] 候选地址扫描 ----'
-                    CANDIDATES="host.docker.internal gateway.docker.internal localhost 127.0.0.1"
+                    # 同 docker 网络时，「容器名 nacos」是首选候选；其余作为兜底
+                    CANDIDATES="nacos host.docker.internal gateway.docker.internal localhost 127.0.0.1"
                     GW=$(ip route 2>/dev/null | awk '/default/ {print $3; exit}')
                     [ -n "$GW" ] && CANDIDATES="$CANDIDATES $GW"
                     for h in $CANDIDATES; do
@@ -117,7 +131,7 @@ pipeline {
                     # --- F. 端口层探测 ---
                     echo
                     echo '---- [F] TCP 端口探测 ----'
-                    for h in host.docker.internal gateway.docker.internal localhost 127.0.0.1 $GW; do
+                    for h in nacos host.docker.internal gateway.docker.internal localhost 127.0.0.1 $GW; do
                         [ -z "$h" ] && continue
                         if timeout 3 bash -c "</dev/tcp/$h/${NACOS_CHECK_PORT}" 2>/dev/null; then
                             echo "    $h:${NACOS_CHECK_PORT}    TCP OK"
@@ -136,10 +150,10 @@ pipeline {
                         echo
                         echo "!! 主目标 http://${NACOS_CHECK_HOST}:${NACOS_CHECK_PORT}/nacos/ 不可达"
                         echo "   请根据上方 [A]~[F] 段的输出定位问题:"
-                        echo "     - [B] host.docker.internal 解析不到 -> Jenkins 启动需要加 --add-host=host.docker.internal:host-gateway"
-                        echo "     - [C] 看不到 docker 容器         -> Jenkins agent 没挂 docker.sock，NACOS_CHECK_HOST 必须填宿主机 IP"
+                        echo "     - [B] nacos 解析不到            -> Jenkins 容器不在 nacos 所在的网络，检查 docker network inspect <NETWORK_NAME>"
+                        echo "     - [C] 看不到 docker 容器         -> Jenkins agent 没挂 docker.sock"
                         echo "     - [C] nacos 容器没在跑           -> 先 docker start nacos"
-                        echo "     - [F] 全部 closed/timeout        -> 端口没映射出来，检查 docker run -p 8848:8848 -p 9848:9848"
+                        echo "     - [F] 全部 closed/timeout        -> 端口没映射 / 跨网络不通，确认 NETWORK_NAME 一致"
                         exit 1
                     fi
                 '''
@@ -189,8 +203,20 @@ pipeline {
         stage('4. Deploy Backend Container') {
             steps {
                 // env 文件只注入 Nacos 地址与凭据；敏感配置（datasource / jwt）由 Nacos 提供
+                // --network：把后端容器加进所有服务所在的那个 user-defined 网络，
+                //   这样容器名 nacos / mysql 才能被 Docker 内置 DNS 解析。
                 sh """
                     set -eux
+
+                    # 构造 --network 参数（NETWORK_NAME 为空时不加）
+                    NETWORK_ARG=""
+                    if [ -n "${params.NETWORK_NAME}" ]; then
+                        NETWORK_ARG="--network=${params.NETWORK_NAME}"
+                        echo "==> joining network: ${params.NETWORK_NAME}"
+                    else
+                        echo "!! NETWORK_NAME 为空，后端容器会跑在默认 bridge，可能连不上 nacos"
+                    fi
+
                     cat > /tmp/backend-env-\$\$.env <<EOF
 SPRING_PROFILES_ACTIVE=${params.PROFILE}
 SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR=${params.NACOS_HOST}:${params.NACOS_PORT}
@@ -208,11 +234,17 @@ EOF
                         --name ${params.BACKEND_NAME} \\
                         -p ${params.BACKEND_PORT}:8888 \\
                         --restart unless-stopped \\
-                        --add-host=host.docker.internal:host-gateway \\
+                        \$NETWORK_ARG \\
                         --env-file /tmp/backend-env-\$\$.env \\
                         ${BACKEND_IMAGE}:${params.BACKEND_TAG}
 
                     rm -f /tmp/backend-env-\$\$.env
+
+                    # 确认 backend 真的在这个网络里
+                    if [ -n "${params.NETWORK_NAME}" ]; then
+                        echo '==> backend network:'
+                        docker inspect -f '{{.Name}} -> {{json .NetworkSettings.Networks}}' ${params.BACKEND_NAME}
+                    fi
 
                     echo '==> waiting for backend...'
                     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
