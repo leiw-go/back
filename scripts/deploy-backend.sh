@@ -62,6 +62,6 @@ for i in $(seq 1 15); do
     echo "    still waiting ($((i*3))s)..."
 done
 
-echo "!! backend not ready in 45s"
+echo "!! backend not ready in 45s, use docker logs --tail 200 backend see why"
 echo "   docker logs $BACKEND_NAME"
 exit 1
