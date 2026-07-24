@@ -1,0 +1,66 @@
+# ============================================================
+# dev profile —— 本地开发
+#   server-addr 已在 application.yml 默认 127.0.0.1:8848，
+#   本文件只放 profile-specific 的认证 / 行为配置。
+# ============================================================
+
+spring:
+  # ============================================================
+  # 本地兜底配置（nacos 临时不可用时仍可启动）
+  #   这些字段原本只在 nacos 配置中心维护，docker desktop 端口转发故障
+  #   导致 9848 gRPC 端口不通，nacos-client 拉不到配置时先用本地兜底。
+  #   nacos 恢复后可继续从配置中心覆盖。
+  # ============================================================
+  datasource:
+    # dev 用 127.0.0.1（mysql-simple 容器把 3306 映射到宿主机）；
+    # prod 在 application-prod.yml 用 host.docker.internal:3306
+    url: jdbc:mysql://127.0.0.1:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: Root@123456
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:sql/schema.sql
+      data-locations: classpath:sql/data.sql,classpath:sql/data-user.sql
+      continue-on-error: true
+  cloud:
+    nacos:
+      config:
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        # Nacos 暂不可用时仍可启动（dev/CI 友好）
+        fail-fast: false
+        # 显式开启配置变更推送：Nacos Client 收到 ConfigService 变更后会发 RefreshEvent，
+        # @RefreshScope Bean 接到事件后销毁重建。默认就是 true，这里只是表达意图。
+        refresh-enabled: true
+      discovery:
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        # Dev / 本地默认 register 本实例；test profile 在 application-test.yml 关闭
+        register-enabled: ${NACOS_DISCOVERY_REGISTER_ENABLED:true}
+        # Nacos 不可达时不阻塞启动，依赖后续重连
+        fail-fast: false
+
+# 飞书自定义机器人 webhook 配置（见 FeishuWebhookProperties）。
+# dev 环境默认开启，便于本地联调推送
+feishu:
+  webhook:
+    url: ${FEISHU_WEBHOOK_URL:https://open.feishu.cn/open-apis/bot/v2/hook/a13b74c9-3f18-4612-a4e7-79da95858857}
+    enabled: ${FEISHU_WEBHOOK_ENABLED:true}
+    timeout-ms: ${FEISHU_WEBHOOK_TIMEOUT_MS:3000}
+    secret: ${FEISHU_WEBHOOK_SECRET:}
+
+# jwt / akshare 本地兜底（原本在 nacos，见 application-dev.yml 顶部注释）
+jwt:
+  secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==
+  expiration: 86400000
+
+akshare:
+  service:
+    base-url: http://localhost:18000
+    timeout-ms: 5000

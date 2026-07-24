@@ -4,7 +4,10 @@
 #   build:  registry.cn-hangzhou.aliyuncs.com/library/maven:3.9-eclipse-temurin-17
 #   runtime: registry.cn-hangzhou.aliyuncs.com/library/eclipse-temurin:17-jre-alpine
 # ============================================================
-FROM registry.cn-hangzhou.aliyuncs.com/library/maven:3.9-eclipse-temurin-17 AS build
+ARG DOCKER_MIRROR=dockerproxy.cn
+
+
+FROM ${DOCKER_MIRROR}/library/maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /build
 
 # 让 Maven 走项目里的 settings.xml（华为云镜像，避免 Maven Central 直连）
@@ -26,7 +29,7 @@ RUN --mount=type=cache,target=/root/.m2/repository,sharing=locked \
 # ------------------------------------------------------------
 # Runtime 阶段
 # ------------------------------------------------------------
-FROM registry.cn-hangzhou.aliyuncs.com/library/eclipse-temurin:17-jre-alpine
+FROM ${DOCKER_MIRROR}/library/eclipse-temurin:17-jre-alpine
 
 # JVM 直接读 TZ 环境变量，省掉 tzdata 包 + 软链接 + 时区文件
 ENV TZ=Asia/Shanghai

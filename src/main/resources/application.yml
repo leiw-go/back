@@ -6,37 +6,22 @@ spring:
     name: ProjectInfomationManage
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-  # Spring Cloud Alibaba 2022+ 需要显式 import Nacos 配置
+  # Spring Cloud Alibaba 2023+ 需要显式 import Nacos 配置
   # dataId 必须带 file-extension 后缀，因为 file-extension 不会自动拼接到 import 中的 dataId
+  # ⚠ file-extension 和 server-addr 必须在 base 文件中声明：
+  #   spring.config.import 占位符在 profile 文件加载之前就要解析，
+  #   否则 Nacos 客户端拿到 http://null/... 的非法 URI 直接启动失败。
   config:
     import: "optional:nacos:ProjectInfomationManage-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}"
-  # 敏感配置（datasource / jwt / sql.init）由 Nacos 提供；
-  # 默认 dataId 约定：${spring.application.name}-${spring.profiles.active}.yaml
   cloud:
     nacos:
       config:
-        server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
-        namespace: ${NACOS_NAMESPACE:}
-        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        # 默认连本机 Nacos；profile 文件可覆盖为 prod 的 host.docker.internal
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        # 必须放在 base：被 spring.config.import 占位符引用
         file-extension: yaml
-        username: ${NACOS_USERNAME:nacos}
-        password: ${NACOS_PASSWORD:nacos}
-        # Nacos 暂不可用时仍可启动（dev/CI 友好）
-        fail-fast: false
-        # 显式开启配置变更推送：Nacos Client 收到 ConfigService 变更后会发 RefreshEvent，
-        # @RefreshScope Bean 接到事件后销毁重建。默认就是 true，这里只是表达意图。
-        refresh-enabled: true
       discovery:
-        # 与 config 复用同一组环境变量；Jenkinsfile 仅需在容器 env-file 里写一份
-        server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
-        namespace: ${NACOS_NAMESPACE:}
-        group: ${NACOS_GROUP:DEFAULT_GROUP}
-        username: ${NACOS_USERNAME:nacos}
-        password: ${NACOS_PASSWORD:nacos}
-        # Dev / 本地默认 register 本实例；test profile 在 application-test.yml 关闭
-        register-enabled: ${NACOS_DISCOVERY_REGISTER_ENABLED:true}
-        # Nacos 不可达时不阻塞启动，依赖后续重连
-        fail-fast: false
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -50,21 +35,6 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
-
-# 飞书自定义机器人 webhook 配置（见 FeishuWebhookProperties）。
-#   - url: 在飞书群中添加自定义机器人后获得的 webhook 地址；
-#   - enabled: 总开关，false 时定时任务和主动推送都会跳过；
-#   - timeout-ms: webhook HTTP 调用的超时时间；
-#   - secret: 机器人"安全设置"中勾选"加签"时显示的密钥（sec-xxx），
-#     开启加签时必须配置，否则飞书会返回 190002 params error。
-#     未开启加签时留空即可.
-#   生产环境建议把这四项放到 Nacos 配置，而不是写死。
-feishu:
-  webhook:
-    url: ${FEISHU_WEBHOOK_URL:https://open.feishu.cn/open-apis/bot/v2/hook/a13b74c9-3f18-4612-a4e7-79da95858857}
-    enabled: ${FEISHU_WEBHOOK_ENABLED:true}
-    timeout-ms: ${FEISHU_WEBHOOK_TIMEOUT_MS:3000}
-    secret: ${FEISHU_WEBHOOK_SECRET:}
 
 # Actuator 暴露面控制：默认只开 health/info（健康/存活探针），
 # 这里额外开 refresh —— 让运维能在不发重启的前提下强制刷新一次 Nacos 配置。

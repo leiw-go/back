@@ -1,0 +1,41 @@
+# ============================================================
+# prod profile —— 生产环境
+#   沿用拆分前 application.yml 的默认值：
+#     - server-addr 默认 host.docker.internal:8848（容器内默认 Nacos 网关）
+#     - username/password 默认 nacos/nacos（部署平台一般会通过环境变量覆盖）
+#     - fail-fast: false，Nacos 暂时不可达不阻塞启动（与拆分前行为一致）
+#   飞书 webhook 默认关闭，由部署平台注入或 Nacos 配置中心覆盖
+# ============================================================
+
+spring:
+  cloud:
+    nacos:
+      config:
+        # prod 覆盖 base 的 server-addr 默认值；profile 加载晚于 base 但早于 Nacos 实际连接
+        server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        # Nacos 暂不可用时仍可启动（与拆分前行为保持一致）
+        fail-fast: false
+        # 显式开启配置变更推送
+        refresh-enabled: true
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:host.docker.internal:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        # 生产默认开启注册；如需临时摘掉可通过 NACOS_DISCOVERY_REGISTER_ENABLED=false 关掉
+        register-enabled: ${NACOS_DISCOVERY_REGISTER_ENABLED:true}
+        # Nacos 不可达时不阻塞启动，依赖后续重连
+        fail-fast: false
+
+# 飞书 webhook 生产默认关闭，由部署平台注入或 Nacos 配置中心覆盖
+feishu:
+  webhook:
+    url: ${FEISHU_WEBHOOK_URL:}
+    enabled: ${FEISHU_WEBHOOK_ENABLED:false}
+    timeout-ms: ${FEISHU_WEBHOOK_TIMEOUT_MS:3000}
+    secret: ${FEISHU_WEBHOOK_SECRET:}
