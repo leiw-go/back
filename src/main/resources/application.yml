@@ -51,19 +51,6 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-# akshare FastAPI 桥接（见 akshare-service/）。
-#   - 本机开发：Docker compose 把容器 8000 映射到宿主 18000（避开前端 8000 占用）；
-#     Spring Boot 直接走 http://localhost:18000。
-#   - 如果想把 akshare 容器跑在与 Spring Boot 同一个 docker 网络里，
-#     base-url 用 http://akshare-service:8000 即可。
-#   - 生产建议把 base-url 放到 Nacos 配置而不是写死。
-#   - 这俩字段绑到 AkshareServiceProperties 上（@RefreshScope），改完在 Nacos 控制台发
-#     布即可生效，不需要重启（POST /actuator/refresh 手动触发的兜底）。
-akshare:
-  service:
-    base-url: ${AKSHARE_SERVICE_BASE_URL:http://localhost:18000}
-    timeout-ms: 5000
-
 # 飞书自定义机器人 webhook 配置（见 FeishuWebhookProperties）。
 #   - url: 在飞书群中添加自定义机器人后获得的 webhook 地址；
 #   - enabled: 总开关，false 时定时任务和主动推送都会跳过；

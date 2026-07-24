@@ -31,9 +31,9 @@ import java.util.Set;
  * <p>
  * 本监听器在 Spring 内置的 {@code RefreshEventListener} 之后监听
  * {@link org.springframework.cloud.context.environment.EnvironmentChangeEvent}.
- * 当变更集中并不包含我们关心的键（当前为所有匹配 {@code akshare.*} / {@code biz.*} 的键）
+ * 当变更集中并不包含我们关心的键（当前为所有匹配 {@code biz.*} 的键）
  * 时，显式触发 {@link ContextRefresher#refresh()}，从而使全部 {@code @RefreshScope}
- * Bean（包括配置属性以及 RestTemplate）得到重建. 这能覆盖首次发布以及其他 diff 恰好
+ * Bean（包括配置属性）得到重建. 这能覆盖首次发布以及其他 diff 恰好
  * 为空的 Nacos 事件.
  * </p>
  *
@@ -54,7 +54,7 @@ public class DynamicRefreshFallback {
      * 本监听器认定为"自有项目键"的属性名前缀.
      * 任何匹配此前缀的键都必须触发刷新，即便 Nacos 的 diff 集合为空.
      */
-    private static final String[] WATCHED_PREFIXES = {"akshare.", "biz."};
+    private static final String[] WATCHED_PREFIXES = {"biz."};
 
     private final ContextRefresher refresher;
 
@@ -101,7 +101,7 @@ public class DynamicRefreshFallback {
             LOGGER.info(
                     "[refresh-fallback] EnvironmentChangeEvent came in with "
                             + "(empty) keys; observed keys={}. Calling ContextRefresher.refresh() "
-                            + "to cover akshare.* / biz.* even when Nacos's diff is empty.",
+                            + "to cover biz.* even when Nacos's diff is empty.",
                     keys);
             try {
                 refresher.refresh();
