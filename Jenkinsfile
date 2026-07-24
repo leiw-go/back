@@ -10,7 +10,7 @@ pipeline {
     parameters {
         string(name: 'BACKEND_TAG',   defaultValue: 'latest',  description: '镜像 tag')
         booleanParam(name: 'CLEAN_IMAGE', defaultValue: false, description: '构建前清理同名旧镜像')
-        string(name: 'PROFILE',       defaultValue: 'dev',     description: 'Spring profile (dev|prod)')
+        string(name: 'PROFILE',       defaultValue: 'prod',     description: 'Spring profile (dev|prod)')
 
         // 后端容器
         string(name: 'BACKEND_PORT',  defaultValue: '8888',    description: '后端宿主机端口')

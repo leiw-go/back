@@ -32,7 +32,7 @@ WHERE permission_code IN ('user:read', 'role:read', 'product:read');
 
 -- Insert default admin user (password: admin123, BCrypt encrypted, skip if already exists)
 INSERT IGNORE INTO t_user (id, username, password, real_name, status) VALUES
-('550e8400-e29b-41d4-a716-446655440201', 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Administrator', 1);
+('550e8400-e29b-41d4-a716-446655440201', 'admin', '$2a$10$FtMOPk5bSAG2p6udDM1wy.hf0GCFGeX5hbRg74Bh6Z1fVQxfByCOi', 'Administrator', 1);
 
 -- Assign admin role to admin user (skip if already exists)
 INSERT IGNORE INTO t_user_role (id, user_id, role_id) VALUES
