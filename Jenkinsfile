@@ -65,13 +65,15 @@ pipeline {
 
         stage('3. Build Backend Image') {
             steps {
-                    // 探测可用的 docker 镜像源（规避单一源挂掉导致 build 全失败）
+                // 探测可用的 docker 镜像源（规避单一源挂掉导致 build 全失败）
+                // env.* 赋值 / if 判定都属任意 Groovy,必须包在 script 块里
+                script {
                     env.DOCKER_MIRROR = sh(
                         returnStdout: true,
                         script: 'bash ./scripts/pick-docker-mirror.sh'
                     ).trim()
                     echo "🔍 picked DOCKER_MIRROR=${env.DOCKER_MIRROR}"
-                script {
+
                     if (params.CLEAN_IMAGE) {
                         sh "docker rmi -f ${BACKEND_IMAGE}:${params.BACKEND_TAG} || true"
                     }
