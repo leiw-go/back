@@ -27,12 +27,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     /**
      * 为所有 API 路径注册认证拦截器.
+     * <p>注意:后端全局 servlet context-path 为 {@code /design},
+     * 拦截路径必须与外部访问路径保持一致,即 {@code /design/api/**}.
      *
      * @param registry 拦截器注册表
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
-                .addPathPatterns("/api/**");
+                .addPathPatterns("/design/api/**");
     }
 }

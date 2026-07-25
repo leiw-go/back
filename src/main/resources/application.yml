@@ -1,5 +1,9 @@
 server:
   port: 8888
+  # 所有 HTTP 接口统一加上 /design 前缀,用于区分来自本服务的接口
+  # 例如 AuthController 的 /api/auth/login 在外部访问为 /design/api/auth/login
+  servlet:
+    context-path: /design
 
 spring:
   application:
