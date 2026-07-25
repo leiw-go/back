@@ -31,7 +31,21 @@ spring:
         register-enabled: ${NACOS_DISCOVERY_REGISTER_ENABLED:true}
         # Nacos 不可达时不阻塞启动，依赖后续重连
         fail-fast: false
+  datasource:
+    url: jdbc:mysql://mysql:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:sql/schema.sql
+      data-locations: classpath:sql/data.sql,classpath:sql/data-user.sql
+      continue-on-error: true
 
+jwt:
+  secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==
+  expiration: 86400000
 # 飞书 webhook 生产默认关闭，由部署平台注入或 Nacos 配置中心覆盖
 feishu:
   webhook:
