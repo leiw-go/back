@@ -23,7 +23,7 @@
 | 微服务 | Spring Cloud Alibaba 2023.0.1.0（已自带 BOM） |
 | 配置/注册中心 | Nacos（config + discovery） |
 | ORM | MyBatis 3.0.3（XML 映射在 `src/main/resources/mapper/`） |
-| 数据库 | dev: H2（嵌入式）  / prod: MySQL Connector/J |
+| 数据库 | dev / test / prod: MySQL Connector/J（test 不连 MySQL，依赖 JUnit 5 + MockBean 上下文冒烟） |
 | 鉴权 | JWT (`io.jsonwebtoken:jjwt 0.12.5`) + Spring Security Crypto BCrypt |
 | 文档 | springdoc-openapi-starter-webmvc-ui 2.6.0（Swagger UI 在 `/swagger-ui.html`） |
 | 运维 | spring-boot-starter-actuator（暴露 `refresh / health / info`） |
@@ -78,7 +78,7 @@
 # 编译（首次会拉依赖，慢）
 ./mvnw -B -DskipTests package
 
-# 跑测试（依赖 H2 内存库，无需 Nacos；详见 application-test.yml）
+# 跑测试（不连 MySQL/Nacos，纯 JUnit 5 单元测试 + MockBean 上下文冒烟；详见 application-test.yml）
 ./mvnw -B test
 
 # 本机直接 Run（dev profile）
@@ -202,10 +202,12 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 ## 11. 测试
 
-- 测试 profile：`src/test/resources/application-test.yml` 会关 Nacos、用 H2 内存库，保证 `./mvnw test` 能离线跑。
-- 新增测试类放 `src/test/java/.../<被测类名>Tests.java`。
+- **纯单元测试**（如 `BCryptPasswordEncoderTests`）只使用 JUnit 5 (`org.junit.jupiter.api.Test`)，不依赖 Spring 上下文、不连接 MySQL/Nacos/任何外部基础设施，`./mvnw test` 离线即可跑通。
+- **上下文冒烟测试**（如 `ProjectInformationManageApplicationTests`、`ProdProfileWithoutNacosTests`）使用 `@SpringBootTest`，但已在测试类自身通过 `spring.autoconfigure.exclude` 排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`、禁用 Nacos config / discovery / service-registry，并对七个 Mapper（`UserMapper` / `RoleMapper` / `UserRoleMapper` / `PermissionMapper` / `RolePermissionMapper` / `ProductMapper` / `LotteryPeriodMapper`）使用 `@MockBean` 占位；不需要外部 MySQL/Nacos 即可完成 context 加载冒烟。
+- 测试 profile：`src/test/resources/application-test.yml` 关闭所有外部依赖（无 datasource、无 Nacos、无 SQL 初始化），仅保留 `jwt.secret` / `jwt.expiration` 占位（`JwtUtil` `@Value` 必填）。
+- 新增测试类放 `src/test/java/.../<被测类名>Tests.java`；纯逻辑测试默认按 JUnit 5 写，不引入 `@SpringBootTest`。
 - 上下文冒烟测试沿用 `ProjectInformationManageApplicationTests#contextLoads` 风格。
-- 不要把外部依赖（真实 Nacos / MySQL）耦合进单元测试；要写就用 Testcontainers。
+- **不要**把外部依赖（真实 Nacos / MySQL）耦合进单元测试；要写集成测试请用 Testcontainers + Failsafe 插件（`*IT.java`），与单元测试目录/阶段分离。
 
 ---
 

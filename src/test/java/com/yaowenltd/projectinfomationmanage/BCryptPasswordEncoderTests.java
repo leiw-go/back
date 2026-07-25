@@ -5,28 +5,21 @@
 package com.yaowenltd.projectinfomationmanage;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ProjectInformationManageApplication 的单元测试类.
- * 使用 test profile（application-test.yml），不依赖外部 config-server.
+ * BCryptPasswordEncoder 的纯 JUnit 5 单元测试。
+ * <p>
+ * 不依赖 Spring 上下文，不读取 {@code application-test.yml}，
+ * 不连接任何外部基础设施；与 {@link ProjectInformationManageApplicationTests}
+ * 的 context 冒烟测试解耦。
+ * </p>
  */
-@SpringBootTest
-@ActiveProfiles("test")
-class ProjectInformationManageApplicationTests {
-
-    /**
-     * Spring 上下文能正常加载的冒烟测试.
-     */
-    @Test
-    void contextLoads() {
-    }
+class BCryptPasswordEncoderTests {
 
     /**
      * 验证 BCryptPasswordEncoder.matches 在密码正确时返回 true.
@@ -64,10 +57,8 @@ class ProjectInformationManageApplicationTests {
     /**
      * 验证 {@code data.sql} / {@code data-user.sql} 中种子账户的 BCrypt 哈希与明文密码匹配.
      * <p>
-     * 原本 {@code testPasswordEncoderMatchesWithCorrectPassword} 试图把 {@code encode("user123")}
-     * 的输出与种子哈希做 {@code assertEquals}，但 BCrypt 是随机 salt，每次输出都不一样，这个断言
-     * 永远过不了。本测试把契约改成"种子哈希能被同一份明文密码还原"，逻辑上等价于
-     * 验证 Service 启动时 {@code AuthServiceImpl#login} 能在真实 DB 里匹配这两个种子账户。
+     * 本方法不读取任何 SQL 文件，也不连接数据库；它只校验仓库中已固定的 BCrypt
+     * 哈希字符串与明文密码之间的契约，防止种子数据被误改。
      * </p>
      */
     @Test

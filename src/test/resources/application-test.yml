@@ -1,23 +1,25 @@
-# 测试自包含配置：禁用 Nacos Config，使用 H2 内存数据库
-# 这样 `mvn test` 在没有运行 Nacos 也能加载 Spring context
+# 测试 profile —— 无外部依赖
+#   - 不连接 MySQL：DataSource / MyBatis 自动配置已在测试类自身显式排除；
+#     七个 Mapper 全部 @MockBean 占位。
+#   - 不连接 Nacos：config / discovery / service-registry 全部关闭。
+#   - schema.sql / data.sql 不在测试阶段执行；如需集成验证请另起 Testcontainers 任务。
 jwt:
-  secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==
-  expiration: 86400000
+  secret: ${JWT_SECRET:YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==}
+  expiration: ${JWT_EXPIRATION:86400000}
 spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;MODE=MySQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
   sql:
     init:
       mode: never
   cloud:
     nacos:
       config:
-        # 测试时禁用 Nacos，避免 context 启动卡住
         enabled: false
       discovery:
-        # 测试时禁用服务注册，避免心跳握手阻塞 context
+        enabled: false
         register-enabled: false
         fail-fast: false
+    discovery:
+      enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false

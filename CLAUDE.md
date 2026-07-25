@@ -31,7 +31,7 @@
 ### 2.2 常用命令（可直接复制）
 
 ```bash
-# 编译 + 跑测试（离线可用，靠 H2 内存库）
+# 编译 + 跑测试（不依赖 MySQL/Nacos，纯 JUnit 5 单元测试 + MockBean 上下文冒烟）
 ./mvnw -B -DskipTests package
 ./mvnw -B test
 
@@ -42,7 +42,9 @@ docker compose -f docker-compose.nacos.yml up -d
 SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
 
 # 跑特定测试类
+./mvnw -B test -Dtest=BCryptPasswordEncoderTests
 ./mvnw -B test -Dtest=ProjectInformationManageApplicationTests
+./mvnw -B test -Dtest=ProdProfileWithoutNacosTests
 
 # 远程 Nacos 健康检查 + 配置发布
 bash scripts/check-nacos.sh <host> <port> [user] [pass]
@@ -70,7 +72,8 @@ bash scripts/publish-config.sh <host> <port> <user> <pass> <profile> <config_rep
 > 这些改完会引发一次完整重启，而且排错成本高 —— 下笔前先想清楚。
 
 - **Nacos dataId**：Spring Cloud Alibaba 2023.0.1.0 不会自动拼 `file-extension`，`application.yml` 里的 `spring.config.import` 已经写完整了 dataId，**不要**简化。
-- **数据库 schema**：dev 用 H2、prod 用 MySQL，新加字段务必在 `schema.sql` 同步，并评估 `schema.sql` 跟 MySQL DDL 的兼容性（`schema.sql` 里有 MySQL 方言如 `\`period\``）。
+- **数据库 schema**：dev / test / prod 均用 MySQL；新加字段务必在 `schema.sql` 同步；`schema.sql` 已统一为 MySQL 方言（反引号 / `ON UPDATE CURRENT_TIMESTAMP` 等），无需再评估 H2 兼容。
+- **单元测试**：纯逻辑测试用 JUnit 5 写，不要加 `@SpringBootTest`；上下文冒烟测试在测试类自身 `properties` 中显式排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`、禁用 Nacos config / discovery / service-registry，并对 Mapper 用 `@MockBean` 占位；`./mvnw test` 必须能离线跑通，不连 MySQL/Nacos。
 - **禁用 Nacos 的开关**：测试用 `spring.cloud.nacos.config.enabled: false`（已在 `application-test.yml` 写好），改测试时不要动 `application.yml` 的兜底 `import: optional:...`。
 - **MyBatis XML 改 namespace**：Mapper 接口和 XML 的 `namespace` 必须一致；`map-underscore-to-camel-case` 已开，**不要**手写 `resultMap`。
 - **JWT secret**：默认 `application.yml` 没有 `jwt.secret`（交给 Nacos）；测试有占位。**不要**在仓库里写真实 secret。
