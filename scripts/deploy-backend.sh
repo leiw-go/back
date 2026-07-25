@@ -67,7 +67,7 @@ docker inspect -f '    {{.Name}}  networks: {{range $k,$v := .NetworkSettings.Ne
 echo "==> waiting for backend..."
 for i in $(seq 1 15); do
     sleep 3
-    if docker exec "$BACKEND_NAME" sh -c 'curl -fsS http://localhost:8888/api-docs' >/dev/null 2>&1; then
+    if docker exec "$BACKEND_NAME" sh -c 'curl -fsS http://localhost:8888/design/api-docs' >/dev/null 2>&1; then
         echo "==> backend ready after $((i*3))s"
         exit 0
     fi
