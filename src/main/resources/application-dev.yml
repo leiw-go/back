@@ -14,10 +14,10 @@ spring:
   datasource:
     # dev 用 127.0.0.1（mysql-simple 容器把 3306 映射到宿主机）；
     # prod 在 application-prod.yml 用 host.docker.internal:3306
-    url: jdbc:mysql://127.0.0.1:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+    url: jdbc:mysql://127.0.0.1:13306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password: Root@123456
+    password: 123456
   sql:
     init:
       mode: always

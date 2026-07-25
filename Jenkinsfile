@@ -16,11 +16,19 @@ pipeline {
         string(name: 'BACKEND_PORT',  defaultValue: '8888',    description: '后端宿主机端口')
         string(name: 'BACKEND_NAME',  defaultValue: 'backend', description: '后端容器名')
 
-        // Nacos（同 docker 网络，直接用容器名）
+        // Nacos（同 docker 网络，直接用容器名；默认可选，连接失败仍继续部署）
         string(name: 'NACOS_HOST',    defaultValue: 'nacos',   description: 'Nacos 主机名')
         string(name: 'NACOS_PORT',    defaultValue: '8848',    description: 'Nacos HTTP 端口')
         string(name: 'NACOS_USER',    defaultValue: 'nacosadmin', description: 'Nacos 用户名')
-        password(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9', description: 'Nacos 密码')
+        password(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9', description: 'Nacos 密码（请使用 Jenkins 凭据/参数注入）')
+        booleanParam(name: 'STRICT_NACOS', defaultValue: false, description: 'Nacos 不可用时是否终止部署')
+
+        // prod 脱离 Nacos 启动所需配置
+        string(name: 'DB_URL', defaultValue: 'jdbc:mysql://mysql:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8', description: 'JDBC URL')
+        string(name: 'DB_USERNAME', defaultValue: 'root', description: '数据库用户名')
+        password(name: 'DB_PASSWORD', defaultValue: 'Root@123456', description: '数据库密码（请使用 Jenkins 凭据/参数注入）')
+        password(name: 'JWT_SECRET', defaultValue: 'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==', description: 'JWT Base64 密钥（请使用 Jenkins 凭据/参数注入）')
+        string(name: 'JWT_EXPIRATION', defaultValue: '86400000', description: 'JWT 过期时间（毫秒）')
 
         // 所有服务所在的 docker 网络（docker network ls 查看）。缺省 deploy-net；
         // Jenkins 在"Build with Parameters"里若被清空,这里兜底回 deploy-net
@@ -43,16 +51,29 @@ pipeline {
 
         stage('1. Check Nacos') {
             steps {
-                sh '''
-                    set +x
-                    bash scripts/check-nacos.sh \
-                        "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD"
-                '''
+                script {
+                    // 默认 STRICT_NACOS=false：Nacos 不可达仅告警，继续构建/部署。
+                    try {
+                        sh '''
+                            set +x
+                            bash scripts/check-nacos.sh \
+                                "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD"
+                        '''
+                        env.NACOS_STATUS = 'OK'
+                    } catch (Exception e) {
+                        if (params.STRICT_NACOS) {
+                            error("Nacos unreachable and STRICT_NACOS=true: ${e.message}")
+                        }
+                        echo "⚠️ Nacos unreachable or auth failed: ${e.message}"
+                        echo "   backend will start with env-provided DB/JWT only"
+                        env.NACOS_STATUS = 'UNREACHABLE'
+                    }
+                }
             }
         }
 
         stage('2. Publish Config to Nacos') {
-            when { expression { return params.CONFIG_REPO_DIR?.trim() } }
+            when { expression { return env.NACOS_STATUS == 'OK' && params.CONFIG_REPO_DIR?.trim() } }
             steps {
                 sh '''
                     set +x
@@ -91,7 +112,9 @@ pipeline {
                     bash scripts/deploy-backend.sh \
                         "$BACKEND_NAME" "$BACKEND_PORT" "$PROFILE" \
                         "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD" \
-                        "$NETWORK_NAME" "${BACKEND_IMAGE}:${BACKEND_TAG}"
+                        "$NETWORK_NAME" "${BACKEND_IMAGE}:${BACKEND_TAG}" \
+                        "$DB_URL" "$DB_USERNAME" "$DB_PASSWORD" \
+                        "$JWT_SECRET" "$JWT_EXPIRATION"
                 '''
             }
         }

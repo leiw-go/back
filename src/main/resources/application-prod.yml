@@ -32,10 +32,11 @@ spring:
         # Nacos 不可达时不阻塞启动，依赖后续重连
         fail-fast: false
   datasource:
-    url: jdbc:mysql://mysql:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+    # 启动必需配置由 Jenkins / Docker 注入；Nacos 可用时仍可提供其他动态配置。
+    url: ${DB_URL:jdbc:mysql://mysql:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: 123456
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
   sql:
     init:
       mode: always
@@ -44,8 +45,9 @@ spring:
       continue-on-error: true
 
 jwt:
-  secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==
-  expiration: 86400000
+  # 生产密钥必须由 Jenkins / Docker 环境变量提供，禁止写入仓库。
+  secret: ${JWT_SECRET:}
+  expiration: ${JWT_EXPIRATION:86400000}
 # 飞书 webhook 生产默认关闭，由部署平台注入或 Nacos 配置中心覆盖
 feishu:
   webhook:
