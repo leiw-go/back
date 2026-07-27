@@ -130,6 +130,14 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- H2 in-memory database — 仅测试 scope，用于 AuthController 集成测试，
+             配合 src/test/resources/application-auth-it.yml 启用。生产仍走 MySQL。 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
