@@ -2,7 +2,7 @@
 #   - 不连接 MySQL：DataSource / MyBatis 自动配置已在测试类自身显式排除；
 #     七个 Mapper 全部 @MockBean 占位。
 #   - 不连接 Nacos：config / discovery / service-registry 全部关闭。
-#   - schema.sql / data.sql 不在测试阶段执行；如需集成验证请另起 Testcontainers 任务。
+#   - Flyway 与旧 SQL 初始化不在测试阶段执行；如需集成验证请另起 Testcontainers 任务。
 jwt:
   secret: ${JWT_SECRET:YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==}
   expiration: ${JWT_EXPIRATION:86400000}
@@ -10,6 +10,8 @@ spring:
   sql:
     init:
       mode: never
+  flyway:
+    enabled: false
   cloud:
     nacos:
       config:

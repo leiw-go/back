@@ -18,12 +18,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:sql/schema.sql
-      data-locations: classpath:sql/data.sql,classpath:sql/data-user.sql
-      continue-on-error: true
+  flyway:
+    # 已有 dev 库首次接入时登记为 V1；空库仍会正常执行 V1
+    baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:true}
   cloud:
     nacos:
       config:

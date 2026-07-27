@@ -10,9 +10,15 @@ spring:
     name: ProjectInfomationManage
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    baseline-version: "1"
+    validate-on-migrate: true
+    clean-disabled: true
   # Spring Cloud Alibaba 2023+ 需要显式 import Nacos 配置
   # dataId 必须带 file-extension 后缀，因为 file-extension 不会自动拼接到 import 中的 dataId
-  # 敏感配置（datasource / jwt / sql.init）由 Nacos 提供；
+  # 敏感配置（datasource / jwt）由 Nacos 提供；sql.init 必须保持 never，数据库迁移由 Flyway 管理。
   # 默认 dataId 约定：${spring.application.name}-${spring.profiles.active}.yaml
   #
   # base 里提供完整 Nacos 配置，默认值按 dev 设计（localhost:8848，空凭证，对应本地 docker compose）。

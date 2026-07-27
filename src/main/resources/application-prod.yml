@@ -37,12 +37,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:Root@123456}
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:sql/schema.sql
-      data-locations: classpath:sql/data.sql,classpath:sql/data-user.sql
-      continue-on-error: true
+  flyway:
+    # 生产首次接管已有库时由部署环境显式开启，避免连错库后自动 baseline
+    baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
 
 jwt:
   # 生产密钥必须由 Jenkins / Docker 环境变量提供，禁止写入仓库。

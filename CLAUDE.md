@@ -72,7 +72,7 @@ bash scripts/publish-config.sh <host> <port> <user> <pass> <profile> <config_rep
 > 这些改完会引发一次完整重启，而且排错成本高 —— 下笔前先想清楚。
 
 - **Nacos dataId**：Spring Cloud Alibaba 2023.0.1.0 不会自动拼 `file-extension`，`application.yml` 里的 `spring.config.import` 已经写完整了 dataId，**不要**简化。
-- **数据库 schema**：dev / test / prod 均用 MySQL；新加字段务必在 `schema.sql` 同步；`schema.sql` 已统一为 MySQL 方言（反引号 / `ON UPDATE CURRENT_TIMESTAMP` 等），无需再评估 H2 兼容。
+- **数据库 schema**：dev / test / prod 均用 MySQL；结构和种子数据统一由 `src/main/resources/db/migration/V*__*.sql` 管理。已执行的 migration 禁止修改，新增字段/索引/表务必新增递增版本的 Flyway migration；无需评估 H2 兼容。
 - **单元测试**：纯逻辑测试用 JUnit 5 写，不要加 `@SpringBootTest`；上下文冒烟测试在测试类自身 `properties` 中显式排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`、禁用 Nacos config / discovery / service-registry，并对 Mapper 用 `@MockBean` 占位；`./mvnw test` 必须能离线跑通，不连 MySQL/Nacos。
 - **禁用 Nacos 的开关**：测试用 `spring.cloud.nacos.config.enabled: false`（已在 `application-test.yml` 写好），改测试时不要动 `application.yml` 的兜底 `import: optional:...`。
 - **MyBatis XML 改 namespace**：Mapper 接口和 XML 的 `namespace` 必须一致；`map-underscore-to-camel-case` 已开，**不要**手写 `resultMap`。
@@ -114,7 +114,7 @@ bash scripts/publish-config.sh <host> <port> <user> <pass> <profile> <config_rep
 
 1. 这个改动会不会动 `/api/**` 鉴权？ → 同步改 `WebMvcConfig`。
 2. 这个改动会不会改 Nacos 配置？ → 改 `application.yml` 默认值，**且**告诉用户去 Nacos 同步改 prod。
-3. 这个改动会不会改 DB schema？ → 同步改 `schema.sql`，并考虑 `data.sql` 需要回填。
+3. 这个改动会不会改 DB schema？ → 在 `src/main/resources/db/migration/` 新增 Flyway 版本文件，已执行 migration 不得修改；同步确认 Nacos 的 `spring.sql.init.mode` 为 `never`。
 4. 这个改动会不会重启才能生效？ → 能不能用 `@RefreshScope` 规避？
 5. 这个改动会不会触发飞书真实推送？ → 默认 `feishu.webhook.enabled=true` 是有意为之，调试时主动 `false`。
 6. 这个改动会不会改 docker 网络？ → 同步改 `docker-compose.nacos.yml` / `Jenkinsfile` / `scripts/`。

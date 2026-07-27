@@ -59,12 +59,12 @@
 │   ├── service/impl # Spring 实现
 │   └── task/        # @Scheduled 任务（飞书机器人）
 ├── src/main/resources/
-│   ├── application.yml          # 公共 Nacos 配置 + 默认值
-│   ├── application-dev.yml      # dev 覆盖（目前刻意留空）
-│   ├── application-prod.yml     # prod 覆盖（host.docker.internal + nacos/nacos）
+│   ├── application.yml          # 公共 Nacos 配置 + Flyway 默认值
+│   ├── application-dev.yml      # dev 数据源 + Flyway baseline + 本地兜底
+│   ├── application-prod.yml     # prod 数据源/Nacos + Flyway 安全开关
 │   ├── mapper/*.xml             # MyBatis 映射
 │   ├── META-INF/                # （空，可放 spring.factories 等）
-│   └── sql/schema.sql + data.sql + data-user.sql
+│   └── db/migration/V*__*.sql   # Flyway 版本化迁移
 └── src/test/...                 # JUnit 5 + Spring Boot Test
 ```
 
@@ -97,10 +97,11 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 ## 4. 配置 / Profile 约定
 
-- `application.yml` 是公共底座，提供 Nacos 连接、actuator 暴露、feishu 集成所需的字段。
-- `application-dev.yml` **几乎是空文件**（故意留空），用 `docker-compose.nacos.yml` 提供本地 Nacos。
-- `application-prod.yml` 仅覆盖 Nacos 的 `server-addr` / `username` / `password`，靠 `host.docker.internal:8848`。
-- 敏感字段（生产 `datasource` / `jwt` / sql.init）放在 Nacos 的 `ProjectInfomationManage-prod.yaml`，**不要**塞进仓库。
+- `application.yml` 是公共底座，提供 Nacos 连接、Flyway 默认值、actuator 暴露、feishu 集成所需的字段。
+- `application-dev.yml` 提供本地兜底 datasource，并默认允许已有 dev 库登记 Flyway V1 baseline。
+- `application-prod.yml` 覆盖 Nacos 与生产 datasource，并默认关闭自动 baseline，首次接管已有库时由部署环境显式开启。
+- 敏感字段（生产 `datasource` / `jwt`）放在 Nacos 的 `ProjectInfomationManage-prod.yaml`，**不要**塞进仓库。
+- 数据库初始化统一由 Flyway 管理；Nacos 中的 `spring.sql.init.mode` 必须保持 `never`，不要恢复旧 SQL 初始化。
 - dataId 命名约定：`ProjectInfomationManage-${spring.profiles.active}.yaml`。
 - Spring Cloud Alibaba 2023.0.1.0 在 `spring.config.import` 中必须**显式**写出后缀，所以 `application.yml` 里那里要写完整 dataId。
 - 切换远程 Nacos：`export NACOS_SERVER_ADDR=... NACOS_USERNAME=... NACOS_PASSWORD=...` 即可。
@@ -121,7 +122,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
   - `AuthController#login`
 - JWT 头部：`Authorization: Bearer <token>`，没有 / 过期 / 非法 → `401 UnauthorizedException` → 经 `GlobalExceptionHandler` 返回 `code=401`。
 - 默认无权限注解 `@PreAuthorize` 之类；如果未来加 RBAC，请只变更 `AuthInterceptor` + `RoleController` 这一层，**不要**在每个 controller 上重复判断。
-- 默认账号在 `src/main/resources/sql/data.sql` 与 `data-user.sql`：
+- 默认账号在 `src/main/resources/db/migration/V1__baseline_project_info_manage.sql`：
   - `admin / admin123`（ADMIN）
   - `testuser / test123456`（USER）
 
@@ -129,11 +130,11 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 ## 6. 数据库 / Mapper
 
-- 表结构与演示数据：`src/main/resources/sql/schema.sql` / `data.sql` / `data-user.sql`。
+- 表结构与演示数据由 `src/main/resources/db/migration/V*__*.sql` 管理；已执行的 migration 文件禁止修改。
+- 新增表、字段、索引或种子数据 → 新增递增版本的 Flyway migration（例如 `V2__add_xxx.sql`），不要再直接修改旧版本或依赖 `schema.sql`。
 - 主键策略：`UUID`（`String` 类型字段，与 MySQL `VARCHAR(36)` 配对）。
 - 字段命名：`snake_case`；MyBatis 开启 `map-underscore-to-camel-case`，**不要再写 `resultMap`**。
 - 软删除约定：表中用 `status TINYINT`（1 启用 / 0 停用），不要直接 DELETE。
-- 新增表 → 同步改 `schema.sql`；新增种子数据 → 同步改 `data.sql` 且使用 `INSERT IGNORE` / `INSERT IGNORE ... SELECT`。
 - `t_lottery_period` 字段重复（`front_1` … `front_5` / `back_1` / `back_2`），是历史遗留，**新增分析逻辑请走 Service 而不是再加列**。
 
 ---
@@ -165,7 +166,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 3. `service/XxxService.java` + `service/impl/XxxServiceImpl.java`。
 4. `controller/XxxController.java`，在类上 `RequestMapping("/api/xxx")`；**默认要 JWT**，测试需要时再 `@SkipAuth`。
 5. 在 Swagger 上加 `@Tag` / `@Operation`，不要复制粘贴无注解的接口。
-6. 写 `schema.sql` + `data.sql` 做迁移。
+6. 写 `src/main/resources/db/migration/V<N>__*.sql` 做迁移；已执行版本禁止修改。
 
 ### 9.2 改 Nacos 配置
 
@@ -215,7 +216,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 - 分支：默认 `master`；功能分支按 `feature/xxx` 或 `fix/xxx` 走。
 - 提交信息走约定式（看 `git log` 历史：`add ...` / `fix(scope): ...`）。
-- 一次提交只做一件事，至少包含：源码 + 相关测试 + 相关 `schema.sql`/`data.sql`。
+- 一次提交只做一件事，至少包含：源码 + 相关测试 + 对应的 Flyway migration（如涉及数据库变更）。
 - 改公共 Bean / 拦截器 / 拦截路径：`/api/**` 时一定更新 `WebMvcConfig`。
 - 改 `pom.xml`：升级 Spring Boot / Spring Cloud Alibaba 时**必须**同时核对 `bootstrap.yml` / `application.yml` 的配置项迁移。
 
