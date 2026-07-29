@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+  -->
+
+<configuration>
+
+    <!-- 复用 Spring Boot 自带的默认 console appender 与默认 pattern，
+         避免与 Actuator / Banner 等输出不一致。 -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!--
+        抑制 Nacos Client 内部 "连接失败" 的循环报错。
+        现象：Nacos 不可达时,RpcClient / GrpcClient / ClientWorker 会按以下节奏
+            反复打印 ERROR + 堆栈：
+              * com.alibaba.nacos.common.remote.client          : "Send request fail" / "Fail to connect server"
+              * com.alibaba.nacos.common.remote.client.grpc     : "Server check fail"（带 gRPC 堆栈）
+              * com.alibaba.nacos.client.config.impl            : "Execute listen config change error"（带 NacosException 堆栈）
+        这些日志对应用本身没有可执行价值（应用已经按 fail-fast=false 启动成功了），
+        但每几秒刷一次会把运维日志冲掉。
+
+        关键：必须设到 OFF(而不是 WARN)。logback 级别是 TRACE < DEBUG < INFO < WARN < ERROR,
+        设到 WARN 时 ERROR 仍然会过,等于没设。OFF 是"完全关闭"。
+
+        重要：nacos-client 2.3.x 的 LogbackNacosLogging 会监听 logback LoggerContext
+        变更事件,并自动加载 nacos-client 自带的 nacos-logback.xml,把我们这里的级别
+        全部冲回 INFO. 必须配合 ProjectInformationManageApplication#main 里
+        System.setProperty("nacos.logging.default.config.enabled", "false") 才有效。
+
+        另：com.alibaba.cloud.nacos.*(spring-cloud-starter-alibaba-nacos-discovery
+        的入口,NacosServiceRegistry 等 Spring Cloud 适配层). 它会在 JVM shutdown /
+        BeanPreDestroy 时把 Nacos client 抛上来的 NacosException 用 log.error + 堆栈
+        打出来("ERR_NACOS_DEREGISTER, de-register failed..."). Nacos 已经不通,
+        deregister 必然失败,堆栈无意义,一起静默掉。
+    -->
+    <logger level="OFF" name="com.alibaba.nacos.common.remote.client"/>
+    <logger level="OFF" name="com.alibaba.nacos.common.remote.client.grpc"/>
+    <logger level="OFF" name="com.alibaba.nacos.client.config.impl"/>
+    <logger level="OFF" name="com.alibaba.nacos.client.naming"/>
+    <logger level="OFF" name="com.alibaba.nacos.client.auth"/>
+    <logger level="OFF" name="com.alibaba.cloud.nacos"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

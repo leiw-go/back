@@ -32,6 +32,13 @@ public class ProjectInformationManageApplication {
      * @param args 命令行参数
      */
     public static void main(String[] args) {
+        // 必须在 SpringApplication.run 之前设置：
+        // nacos-client 2.3.x 的 LogbackNacosLogging 会监听 logback LoggerContext 的变更事件,
+        // 并在事件触发时重新加载 nacos-client 自带的 nacos-logback.xml,把我们 logback-spring.xml
+        // 里给 com.alibaba.nacos.* 设的 OFF 全部冲回 INFO. 关闭"默认 Nacos 日志配置"后,
+        // 它就不再挂监听、不再重载,logback-spring.xml 才是最终生效的。
+        // (只对 nacos-client 2.3.2 验证过;2.4+ 若改 API,需要重新评估这个开关。)
+        System.setProperty("nacos.logging.default.config.enabled", "false");
         SpringApplication.run(ProjectInformationManageApplication.class, args);
     }
 
