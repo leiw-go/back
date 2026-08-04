@@ -31,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RequestCallback;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -39,6 +40,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -165,6 +167,15 @@ public class OpenAiRelayService {
                 completion = n(response.getBody().getUsage().getCompletionTokens());
                 total = n(response.getBody().getUsage().getTotalTokens());
             }
+            if (prompt == 0 && total == 0) {
+                // 上游没给 usage —— 拿 messages 估 prompt
+                String messagesJson = serializeMessages(upstreamRequest);
+                int estimated = tokenEstimator.estimate(messagesJson, upstreamRequest.getModel());
+                prompt = estimated;
+                total = estimated;
+                LOGGER.warn("usage_missing=true provider={} model={} estimated_prompt={}",
+                        provider.getName(), originalModel, estimated);
+            }
             usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
                     prompt, completion, total, response.getStatusCode().value(),
                     System.currentTimeMillis() - start, requestId, null);
@@ -178,6 +189,20 @@ public class OpenAiRelayService {
                     System.currentTimeMillis() - start, requestId, errMsg);
             return ResponseEntity.status(status)
                     .body(OpenAiError.of(errMsg, "upstream_error", String.valueOf(status)));
+        } catch (ResourceAccessException e) {
+            // IO / timeout —— 区分超时 vs 其他网络错误
+            boolean isTimeout = isSocketTimeout(e);
+            int status = isTimeout ? HttpStatus.GATEWAY_TIMEOUT.value()
+                                   : HttpStatus.BAD_GATEWAY.value();
+            String type = isTimeout ? "upstream_timeout" : "upstream_error";
+            String msg = (isTimeout ? "upstream timeout: " : "upstream connection error: ")
+                    + e.getMessage();
+            LOGGER.warn("Upstream chat completion failed: {}", msg);
+            usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
+                    0, 0, 0, status,
+                    System.currentTimeMillis() - start, requestId, msg);
+            return ResponseEntity.status(status)
+                    .body(OpenAiError.of(msg, type, String.valueOf(status)));
         } catch (RestClientException e) {
             String msg = "upstream connection error: " + e.getMessage();
             LOGGER.warn("Upstream chat completion failed: {}", msg);
@@ -225,26 +250,53 @@ public class OpenAiRelayService {
                     emitter.complete();
                 }
                 recordStreamingUsage(provider, originalModel, userId, requestId,
-                        ctx, HttpStatus.OK.value(), null);
+                        upstreamRequest, ctx, HttpStatus.OK.value(), null);
                 span.setStatus(io.opentelemetry.api.trace.StatusCode.OK);
             } catch (ClientDisconnectException disconnect) {
                 // 客户端断连 —— 不抛 500，emitter 已 completeWithError（前面已设）
                 recordStreamingUsage(provider, originalModel, userId, requestId,
-                        ctx, STATUS_CLIENT_DISCONNECT, disconnect.getMessage());
+                        upstreamRequest, ctx, STATUS_CLIENT_DISCONNECT, disconnect.getMessage());
                 span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, "client disconnected");
             } catch (HttpStatusCodeException e) {
                 int status = e.getStatusCode().value();
                 String errMsg = extractUpstreamMessage(e.getResponseBodyAsString());
                 emitter.completeWithError(e);
                 recordStreamingUsage(provider, originalModel, userId, requestId,
-                        ctx, status, errMsg);
+                        upstreamRequest, ctx, status, errMsg);
                 span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, "upstream " + status);
+            } catch (ResourceAccessException e) {
+                // 流式超时 / IO —— 区分 timeout 与普通连接错误
+                boolean isTimeout = isSocketTimeout(e);
+                int status = isTimeout ? HttpStatus.GATEWAY_TIMEOUT.value()
+                                       : HttpStatus.BAD_GATEWAY.value();
+                String type = isTimeout ? "upstream_timeout" : "upstream_error";
+                String msg = (isTimeout ? "upstream timeout: " : "stream connection error: ")
+                        + e.getMessage();
+                LOGGER.warn("Streaming chat failed: {}", msg);
+                if (!ctx.clientDisconnected) {
+                    try {
+                        emitter.send(SseEmitter.event()
+                                .name("error")
+                                .data(new OpenAiError.Error() {{
+                                    setMessage(msg);
+                                    setType(type);
+                                    setCode(String.valueOf(status));
+                                }}, MediaType.APPLICATION_JSON));
+                        emitter.completeWithError(e);
+                    } catch (Exception ignored) {
+                        // 客户端已断连 —— 不再写 error 帧
+                        emitter.completeWithError(e);
+                    }
+                }
+                recordStreamingUsage(provider, originalModel, userId, requestId,
+                        upstreamRequest, ctx, status, msg);
+                span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, msg);
             } catch (Exception e) {
                 String msg = "stream error: " + e.getMessage();
                 LOGGER.warn("Streaming chat failed: {}", msg);
                 emitter.completeWithError(e);
                 recordStreamingUsage(provider, originalModel, userId, requestId,
-                        ctx, HttpStatus.BAD_GATEWAY.value(), msg);
+                        upstreamRequest, ctx, HttpStatus.BAD_GATEWAY.value(), msg);
                 span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, msg);
             } finally {
                 span.end();
@@ -281,6 +333,13 @@ public class OpenAiRelayService {
                     }
                     String data = line.substring("data:".length()).trim();
                     if (SseLineParser.DONE_SENTINEL.equals(data)) {
+                        // 把 OpenAI 的 [DONE] 哨兵也转发给客户端 —— 客户端可以据此更早知道流结束
+                        try {
+                            emitter.send(SseEmitter.event()
+                                    .data(data, MediaType.APPLICATION_JSON));
+                        } catch (IllegalStateException disconnect) {
+                            ctx.clientDisconnected = true;
+                        }
                         break;
                     }
 
@@ -323,15 +382,20 @@ public class OpenAiRelayService {
      */
     private void recordStreamingUsage(LlmProvider provider, String originalModel,
                                       String userId, String requestId,
+                                      ChatCompletionRequest upstreamRequest,
                                       StreamingContext ctx, int statusCode, String errorMessage) {
         int prompt = ctx.promptTokens;
         int completion = ctx.completionTokens;
         int total = ctx.totalTokens;
 
         if (prompt == 0 && total == 0) {
-            // 上游没给 usage —— 用 jtokkit 估算 prompt
-            LOGGER.warn("usage_missing=true provider={} model={} chunks={}",
-                    provider.getName(), originalModel, ctx.chunks);
+            // 上游没给 usage —— 用 jtokkit 估算 prompt（completion 记 0，因为我们看不到上游 generation 总数）
+            String messagesJson = serializeMessages(upstreamRequest);
+            int estimated = tokenEstimator.estimate(messagesJson, upstreamRequest.getModel());
+            prompt = estimated;
+            total = estimated; // completion=0 时 total = prompt
+            LOGGER.warn("usage_missing=true provider={} model={} chunks={} estimated_prompt={}",
+                    provider.getName(), originalModel, ctx.chunks, estimated);
         }
 
         usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
@@ -464,6 +528,42 @@ public class OpenAiRelayService {
         ChatCompletionRequest.StreamOptions opts = new ChatCompletionRequest.StreamOptions();
         opts.setIncludeUsage(include);
         return opts;
+    }
+
+    /**
+     * 序列化 Chat Completions 的 messages 数组 —— 用于估算 prompt token 数.
+     * 序列化失败时回退空串（估为 0 token，不会崩）.
+     *
+     * @param request 上游请求（含 messages）
+     * @return JSON 字符串
+     */
+    private String serializeMessages(ChatCompletionRequest request) {
+        if (request == null || request.getMessages() == null || request.getMessages().isEmpty()) {
+            return "";
+        }
+        try {
+            return objectMapper.writeValueAsString(request.getMessages());
+        } catch (JsonProcessingException e) {
+            LOGGER.warn("Failed to serialize messages for token estimation: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * 判断 ResourceAccessException 是否由 SocketTimeout 引起.
+     *
+     * @param e ResourceAccessException
+     * @return true 表示是超时（连接建立后 read 超时 / connect 超时）
+     */
+    private static boolean isSocketTimeout(ResourceAccessException e) {
+        Throwable cause = e.getCause();
+        while (cause != null) {
+            if (cause instanceof SocketTimeoutException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     /** 从上游 4xx/5xx body 里尽量提取 error.message */
