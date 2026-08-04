@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+  -->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.mapper.llm.LlmRequestLogMapper">
+
+    <insert id="insertRequestLog"
+            parameterType="com.yaowenltd.projectinfomationmanage.model.entity.LlmRequestLog">
+        INSERT INTO t_llm_request_log
+            (id, user_id, provider, model, endpoint,
+             prompt_tokens, completion_tokens, total_tokens,
+             status_code, latency_ms, request_id, trace_id, error_message)
+        VALUES
+            (#{id}, #{userId}, #{provider}, #{model}, #{endpoint},
+             #{promptTokens}, #{completionTokens}, #{totalTokens},
+             #{statusCode}, #{latencyMs}, #{requestId}, #{traceId}, #{errorMessage})
+    </insert>
+
+    <!--
+        用量聚合查询：根据 groupBy 动态分组。
+        groupBy 取值：user / provider / model / day（其它值 fallback 到 user）。
+        返回列固定：dimension（分组字段名）、dimension_value、total_calls、
+        total_prompt_tokens、total_completion_tokens、total_tokens、failed_calls。
+    -->
+    <select id="aggregateUsage" resultType="com.yaowenltd.projectinfomationmanage.model.dto.UsageAggregateDto">
+        SELECT
+            <choose>
+                <when test="groupBy == 'provider'">'provider' AS dimension,</when>
+                <when test="groupBy == 'model'">'model' AS dimension,</when>
+                <when test="groupBy == 'day'">'day' AS dimension,</when>
+                <otherwise>'user' AS dimension,</otherwise>
+            </choose>
+            <choose>
+                <when test="groupBy == 'provider'">provider</when>
+                <when test="groupBy == 'model'">model</when>
+                <when test="groupBy == 'day'">DATE_FORMAT(created_at, '%Y-%m-%d')</when>
+                <otherwise>user_id</otherwise>
+            </choose>
+            AS dimensionValue,
+            COUNT(*) AS totalCalls,
+            COALESCE(SUM(prompt_tokens), 0) AS totalPromptTokens,
+            COALESCE(SUM(completion_tokens), 0) AS totalCompletionTokens,
+            COALESCE(SUM(total_tokens), 0) AS totalTokens,
+            SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS failedCalls
+        FROM t_llm_request_log
+        <where>
+            <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
+            <if test="provider != null and provider != ''">AND provider = #{provider}</if>
+            <if test="model != null and model != ''">AND model = #{model}</if>
+            <if test="startTime != null">AND created_at &gt;= #{startTime}</if>
+            <if test="endTime != null">AND created_at &lt;= #{endTime}</if>
+        </where>
+        GROUP BY dimensionValue
+        ORDER BY totalCalls DESC
+    </select>
+
+</mapper>

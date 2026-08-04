@@ -5,10 +5,26 @@
 
 <configuration>
 
-    <!-- 复用 Spring Boot 自带的默认 console appender 与默认 pattern，
-         避免与 Actuator / Banner 等输出不一致。 -->
+    <!-- 复用 Spring Boot 自带的默认 console appender 模板（pattern / layout），下面再覆盖。 -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- 真实输出到 stdout 的 appender；pattern 含 trace_id / span_id（来自 OTel MDC 镜像）。 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:-}){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr([trace_id=%X{trace_id:-no-trace},span_id=%X{span_id:-no-span}]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+        OpenTelemetryAppender 包裹 CONSOLE：每次日志事件触发时把当前 Span 的 trace_id / span_id
+        写入 SLF4J MDC（key 默认就是 trace_id / span_id），CONSOLE 的 pattern 用 %X{} 取出来。
+        没有活动 span 时 MDC 里没这两个 key，pattern 的 :-no-trace 兜底，保证日志不爆。
+    -->
+    <appender name="OTEL_CONSOLE" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">
+        <appender-ref ref="CONSOLE"/>
+        <traceIdKey>trace_id</traceIdKey>
+        <spanIdKey>span_id</spanIdKey>
+    </appender>
 
     <!--
         抑制 Nacos Client 内部 "连接失败" 的循环报错。
@@ -42,7 +58,7 @@
     <logger level="OFF" name="com.alibaba.cloud.nacos"/>
 
     <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="OTEL_CONSOLE"/>
     </root>
 
 </configuration>

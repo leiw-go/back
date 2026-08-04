@@ -71,3 +71,22 @@ management:
   info:
     env:
       enabled: false        # 关掉 info/env（暴露太多默认信息，不小心开可能被人扫描）
+
+# ============================================================
+# LLM 中转（OpenAI 兼容）配置
+#   - provider 元数据 + api_key 走 DB（见 V2__add_llm_relay.sql），本节只放非敏感默认值
+#   - 密钥走环境变量 LLM_ENCRYPT_KEY 注入（32 字节 base64），不入 git
+#   - 不依赖 Nacos，修改后需重启生效
+# ============================================================
+llm:
+  upstream:
+    # 非流式调用上游 HTTP 超时（毫秒）；流式调用 read timeout 固定为 0（受上游 keepalive 控制）
+    timeout-ms: ${LLM_UPSTREAM_TIMEOUT_MS:60000}
+  encrypt:
+    # 32 字节 base64 编码；dev 环境使用占位密钥，生产必须从环境变量 LLM_ENCRYPT_KEY 覆盖
+    key: ${LLM_ENCRYPT_KEY:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
+  trace:
+    # OpenTelemetry span 数据导出方式：
+    #   logging —— 输出到 stdout（dev 调试友好）
+    #   none    —— 不导出，只保留 in-memory span context（生产推荐，避免日志噪音）
+    exporter: ${LLM_TRACE_EXPORTER:none}
