@@ -44,7 +44,9 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
 
 mybatis:
-  mapper-locations: classpath:mapper/*.xml
+  # 用 classpath*: + ** 递归匹配子目录（如 mapper/llm/*.xml），
+  # 否则子目录里的 Mapper XML 不会被加载，调用时报 Invalid bound statement
+  mapper-locations: classpath*:mapper/**/*.xml
   type-aliases-package: com.yaowenltd.projectinfomationmanage.model.entity
   configuration:
     map-underscore-to-camel-case: true
