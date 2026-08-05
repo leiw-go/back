@@ -27,13 +27,44 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
+     * 把错误体包成 {@link ResponseEntity} 并<strong>显式钉死</strong>
+     * {@code Content-Type: application/json}。
+     * <p>
+     * <strong>为什么必须显式设置：</strong>直接 {@code return} 一个 POJO 时，Spring 会拿请求的
+     * {@code Accept} 头做内容协商。OpenAI 兼容客户端发流式请求时带
+     * {@code Accept: text/event-stream}，而 Jackson converter 只能产出
+     * {@code application/json}，交集为空 → 抛 {@code HttpMediaTypeNotAcceptableException}
+     * → <strong>本处理器自己的返回值也写不出去</strong>（日志里表现为
+     * "Failure in @ExceptionHandler"）→ 异常继续上抛到 servlet，客户端只拿到一个空 body，
+     * 完全看不到 401 / 400 的真实原因。
+     * </p>
+     * <p>
+     * Content-Type 一旦预设为具体类型，{@code AbstractMessageConverterMethodProcessor}
+     * 就会跳过 Accept 协商直接用它。
+     * </p>
+     * <p>
+     * <strong>HTTP 状态码恒为 200</strong> —— 沿用本仓库既有约定：语义状态码放在响应体的
+     * {@code code} 字段里（见 {@code AuthControllerUnitTests} 的契约说明）。
+     * </p>
+     *
+     * @param body 错误响应体
+     * @return 预设 {@code application/json} 的 ResponseEntity
+     */
+    private static ResponseEntity<ResponseResult<Void>> json(ResponseResult<Void> body) {
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
+    }
+
+    /**
      * 处理方法参数校验异常（{@code @Valid} 校验失败）。
      *
      * @param exception 校验异常
      * @return 含校验错误信息的响应体
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseResult<Void> handleValidationException(MethodArgumentNotValidException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleValidationException(
+            MethodArgumentNotValidException exception) {
         List<String> errors = new ArrayList<>();
         for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
             errors.add(fieldError.getDefaultMessage());
@@ -41,7 +72,7 @@ public class GlobalExceptionHandler {
         ResponseResult<Void> result = new ResponseResult<>(
                 HttpStatus.BAD_REQUEST.value(), "validation error", null);
         result.setErrors(errors);
-        return result;
+        return json(result);
     }
 
     /**
@@ -51,9 +82,10 @@ public class GlobalExceptionHandler {
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseResult<Void> handleIllegalArgumentException(IllegalArgumentException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleIllegalArgumentException(
+            IllegalArgumentException exception) {
         LOGGER.warn("Illegal argument: {}", exception.getMessage());
-        return ResponseResult.badRequest(exception.getMessage());
+        return json(ResponseResult.badRequest(exception.getMessage()));
     }
 
     /**
@@ -63,10 +95,10 @@ public class GlobalExceptionHandler {
      * @return 含未认证提示的响应体
      */
     @ExceptionHandler(UnauthorizedException.class)
-    public ResponseResult<Void> handleUnauthorizedException(UnauthorizedException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleUnauthorizedException(
+            UnauthorizedException exception) {
         LOGGER.warn("Unauthorized access: {}", exception.getMessage());
-        ResponseResult<Void> result = ResponseResult.unauthorized(exception.getMessage());
-        return result;
+        return json(ResponseResult.unauthorized(exception.getMessage()));
     }
 
     /**
@@ -76,9 +108,9 @@ public class GlobalExceptionHandler {
      * @return 含禁止访问提示的响应体
      */
     @ExceptionHandler(ForbiddenException.class)
-    public ResponseResult<Void> handleForbiddenException(ForbiddenException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleForbiddenException(ForbiddenException exception) {
         LOGGER.warn("Forbidden access: {}", exception.getMessage());
-        return ResponseResult.forbidden(exception.getMessage());
+        return json(ResponseResult.forbidden(exception.getMessage()));
     }
 
     /**
@@ -104,13 +136,10 @@ public class GlobalExceptionHandler {
             HttpMediaTypeNotAcceptableException exception) {
         LOGGER.warn("Content negotiation failed, supported={}: {}",
                 exception.getSupportedMediaTypes(), exception.getMessage());
-        ResponseResult<Void> body = new ResponseResult<>(
+        return json(new ResponseResult<>(
                 HttpStatus.NOT_ACCEPTABLE.value(),
                 "no acceptable representation; this endpoint returns application/json",
-                null);
-        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body);
+                null));
     }
 
     /**
@@ -120,9 +149,9 @@ public class GlobalExceptionHandler {
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(RuntimeException.class)
-    public ResponseResult<Void> handleRuntimeException(RuntimeException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleRuntimeException(RuntimeException exception) {
         LOGGER.error("Unexpected runtime error: {}", exception.getMessage(), exception);
-        return ResponseResult.error("internal server error");
+        return json(ResponseResult.error("internal server error"));
     }
 
     /**
@@ -132,8 +161,8 @@ public class GlobalExceptionHandler {
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(Exception.class)
-    public ResponseResult<Void> handleException(Exception exception) {
+    public ResponseEntity<ResponseResult<Void>> handleException(Exception exception) {
         LOGGER.error("Unexpected error: {}", exception.getMessage(), exception);
-        return ResponseResult.error("internal server error");
+        return json(ResponseResult.error("internal server error"));
     }
 }
