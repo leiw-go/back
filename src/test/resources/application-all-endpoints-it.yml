@@ -1,0 +1,38 @@
+#
+# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+#
+
+# all-endpoints-it —— 统一 IT profile，覆盖 10 个 Controller 共 34 个端点的集成测试。
+#   - H2 in-memory（MODE=MySQL + DATABASE_TO_LOWER + DB_CLOSE_DELAY=-1，与原 auth-it 一致）
+#   - spring.sql.init 喂 h2-schema-all.sql + h2-data-all.sql（覆盖 9 张表 + 种子）
+#   - Nacos 全关（config / discovery / service-registry / fail-fast）
+#   - jwt.secret / jwt.expiration 不在 yml 里写，由测试类的 @DynamicPropertySource 注入随机密钥
+#     （避免真实 HMAC 密钥进仓库 —— CLAUDE.md §10 红线）
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:all_endpoints_it;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/h2-schema-all.sql
+      data-locations: classpath:db/h2-data-all.sql
+      continue-on-error: false
+  flyway:
+    enabled: false
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+        register-enabled: false
+        fail-fast: false
+    discovery:
+      enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false
