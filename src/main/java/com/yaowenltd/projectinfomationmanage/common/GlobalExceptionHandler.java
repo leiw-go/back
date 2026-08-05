@@ -7,7 +7,10 @@ package com.yaowenltd.projectinfomationmanage.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -76,6 +79,38 @@ public class GlobalExceptionHandler {
     public ResponseResult<Void> handleForbiddenException(ForbiddenException exception) {
         LOGGER.warn("Forbidden access: {}", exception.getMessage());
         return ResponseResult.forbidden(exception.getMessage());
+    }
+
+    /**
+     * 处理内容协商失败（{@code Accept} 头与服务端能产出的类型不匹配）。
+     * <p>
+     * 典型场景：OpenAI 兼容客户端发流式请求时带 {@code Accept: text/event-stream}，
+     * 但服务端因为参数校验失败等原因要返回 JSON 错误体。此时若走默认处理，Spring 找不到
+     * 能产出 {@code text/event-stream} 的 converter，本处理器自身的返回值也写不出去
+     * （日志里表现为 "Failure in @ExceptionHandler"），客户端最终只能拿到一个 406 空 body，
+     * 真实错误原因完全丢失。
+     * </p>
+     * <p>
+     * 因此这里必须返回 {@link ResponseEntity} 并<strong>显式钉死</strong>
+     * {@code Content-Type: application/json} —— 预设具体 Content-Type 会让 Spring
+     * 跳过 Accept 协商，保证错误体一定能写出去。
+     * </p>
+     *
+     * @param exception 内容协商异常
+     * @return 406 + JSON 错误体
+     */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ResponseResult<Void>> handleMediaTypeNotAcceptable(
+            HttpMediaTypeNotAcceptableException exception) {
+        LOGGER.warn("Content negotiation failed, supported={}: {}",
+                exception.getSupportedMediaTypes(), exception.getMessage());
+        ResponseResult<Void> body = new ResponseResult<>(
+                HttpStatus.NOT_ACCEPTABLE.value(),
+                "no acceptable representation; this endpoint returns application/json",
+                null);
+        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
     }
 
     /**

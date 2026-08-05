@@ -179,7 +179,7 @@ public class OpenAiRelayService {
             usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
                     prompt, completion, total, response.getStatusCode().value(),
                     System.currentTimeMillis() - start, requestId, null);
-            return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+            return jsonEntity(response.getStatusCode().value(), response.getBody());
         } catch (HttpStatusCodeException e) {
             int status = e.getStatusCode().value();
             String upstreamBody = e.getResponseBodyAsString();
@@ -187,8 +187,7 @@ public class OpenAiRelayService {
             usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
                     0, 0, 0, status,
                     System.currentTimeMillis() - start, requestId, errMsg);
-            return ResponseEntity.status(status)
-                    .body(OpenAiError.of(errMsg, "upstream_error", String.valueOf(status)));
+            return jsonEntity(status, OpenAiError.of(errMsg, "upstream_error", String.valueOf(status)));
         } catch (ResourceAccessException e) {
             // IO / timeout —— 区分超时 vs 其他网络错误
             boolean isTimeout = isSocketTimeout(e);
@@ -201,16 +200,15 @@ public class OpenAiRelayService {
             usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
                     0, 0, 0, status,
                     System.currentTimeMillis() - start, requestId, msg);
-            return ResponseEntity.status(status)
-                    .body(OpenAiError.of(msg, type, String.valueOf(status)));
+            return jsonEntity(status, OpenAiError.of(msg, type, String.valueOf(status)));
         } catch (RestClientException e) {
             String msg = "upstream connection error: " + e.getMessage();
             LOGGER.warn("Upstream chat completion failed: {}", msg);
             usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
                     0, 0, 0, HttpStatus.BAD_GATEWAY.value(),
                     System.currentTimeMillis() - start, requestId, msg);
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(OpenAiError.of(msg, "upstream_error", "502"));
+            return jsonEntity(HttpStatus.BAD_GATEWAY.value(),
+                    OpenAiError.of(msg, "upstream_error", "502"));
         }
     }
 
@@ -441,22 +439,21 @@ public class OpenAiRelayService {
             usageRecorder.record(userId, provider.getName(), resolved.getOriginalModel(), "embeddings",
                     prompt, 0, total, response.getStatusCode().value(),
                     System.currentTimeMillis() - start, requestId, null);
-            return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+            return jsonEntity(response.getStatusCode().value(), response.getBody());
         } catch (HttpStatusCodeException e) {
             int status = e.getStatusCode().value();
             String errMsg = extractUpstreamMessage(e.getResponseBodyAsString());
             usageRecorder.record(userId, provider.getName(), resolved.getOriginalModel(), "embeddings",
                     0, 0, 0, status,
                     System.currentTimeMillis() - start, requestId, errMsg);
-            return ResponseEntity.status(status)
-                    .body(OpenAiError.of(errMsg, "upstream_error", String.valueOf(status)));
+            return jsonEntity(status, OpenAiError.of(errMsg, "upstream_error", String.valueOf(status)));
         } catch (RestClientException e) {
             String msg = "upstream connection error: " + e.getMessage();
             usageRecorder.record(userId, provider.getName(), resolved.getOriginalModel(), "embeddings",
                     0, 0, 0, HttpStatus.BAD_GATEWAY.value(),
                     System.currentTimeMillis() - start, requestId, msg);
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(OpenAiError.of(msg, "upstream_error", "502"));
+            return jsonEntity(HttpStatus.BAD_GATEWAY.value(),
+                    OpenAiError.of(msg, "upstream_error", "502"));
         }
     }
 
@@ -476,7 +473,7 @@ public class OpenAiRelayService {
             models.add(m);
         }
         response.setData(models);
-        return ResponseEntity.ok(response);
+        return jsonEntity(HttpStatus.OK.value(), response);
     }
 
     // ----- 工具方法 -----
@@ -583,12 +580,37 @@ public class OpenAiRelayService {
     }
 
     private static ResponseEntity<OpenAiError> badRequest(String msg, String type, String code) {
-        return ResponseEntity.badRequest().body(OpenAiError.of(msg, type, code));
+        return jsonEntity(HttpStatus.BAD_REQUEST.value(), OpenAiError.of(msg, type, code));
     }
 
     private static ResponseEntity<OpenAiError> notFound(String msg, String type, String code) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(OpenAiError.of(msg, type, code));
+        return jsonEntity(HttpStatus.NOT_FOUND.value(), OpenAiError.of(msg, type, code));
+    }
+
+    /**
+     * 构造 JSON 响应，<strong>显式钉死 Content-Type 为 {@code application/json}</strong>.
+     * <p>
+     * 必须显式设置：OpenAI 兼容客户端在发起流式请求时会带 {@code Accept: text/event-stream}，
+     * 而参数校验失败 / provider 不存在 / 上游报错这些分支返回的是 JSON。若不预设 Content-Type，
+     * Spring 会拿 Accept 去做内容协商，找不到能产出 {@code text/event-stream} 的 converter，
+     * 抛 {@code HttpMediaTypeNotAcceptableException}（No acceptable representation），
+     * 客户端只能收到一个 406 空 body，完全看不到真实错误原因。
+     * </p>
+     * <p>
+     * Content-Type 一旦预设为具体类型，{@code AbstractMessageConverterMethodProcessor}
+     * 就会跳过 Accept 协商直接用它 —— 这也符合 OpenAI 官方行为：错误一律以 JSON 返回，
+     * 不受 Accept 影响。
+     * </p>
+     *
+     * @param status HTTP 状态码
+     * @param body   响应体
+     * @param <T>    响应体类型
+     * @return 预设 {@code application/json} 的 ResponseEntity
+     */
+    private static <T> ResponseEntity<T> jsonEntity(int status, T body) {
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
     }
 
     /** 流式上下文：累计用量 + chunk 数 + 是否断连. */
