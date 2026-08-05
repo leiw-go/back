@@ -27,13 +27,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     /**
      * 为所有 API 路径注册认证拦截器.
-     * <p>注意:后端全局 servlet context-path 为 {@code /design},
-     * 拦截路径必须与外部访问路径保持一致,即 {@code /design/api/**}.
+     * <p><strong>注意 pattern 不要带 {@code /design} 前缀。</strong>
+     * 后端全局 servlet context-path 虽然是 {@code /design}，但 context-path 由 servlet 容器
+     * 剥离后才交给 DispatcherServlet，拦截器 pattern 匹配的是<strong>剥离之后</strong>的
+     * lookup path：外部访问 {@code /design/v1/chat/completions}，这里要写 {@code /v1/**}。
      * </p>
      * <p>
-     * 同时覆盖 {@code /design/v1/**}（OpenAI 兼容路径）—— 端用户通过同一套 JWT 鉴权.
-     * TraceId filter 是 Servlet Filter，通过 {@code @Component} 自动注册到主过滤链，
-     * 不在本注册表里。
+     * 写成 {@code /design/api/**} 会导致拦截器一次都不触发 —— 鉴权形同虚设，且 controller 里
+     * {@code request.getAttribute("username")} 恒为 null，落库时报
+     * {@code Column 'user_id' cannot be null}。
+     * 回归测试见 {@code WebMvcConfigInterceptorPathTests}。
+     * </p>
+     * <p>
+     * 覆盖 {@code /api/**}（业务接口）与 {@code /v1/**}（OpenAI 兼容路径）—— 端用户
+     * 通过同一套 JWT 鉴权。TraceId filter 是 Servlet Filter，通过 {@code @Component}
+     * 自动注册到主过滤链，不在本注册表里。
      * </p>
      *
      * @param registry 拦截器注册表
@@ -41,6 +49,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
-                .addPathPatterns("/design/api/**", "/design/v1/**");
+                .addPathPatterns("/api/**", "/v1/**");
     }
 }

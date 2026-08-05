@@ -55,6 +55,17 @@ public class UsageRecorder {
                        long latencyMs,
                        String requestId,
                        String errorMessage) {
+        if (userId == null) {
+            // user_id 是 NOT NULL 列。走到这里说明 AuthInterceptor 没覆盖到该路径，
+            // controller 拿到的 request attribute "username" 为空 —— 这是配置问题，
+            // 不是数据问题。直接点名原因，避免只看到一条 SQL 约束报错还要反查半天。
+            LOGGER.error("userId is null for provider={} model={} endpoint={} —— "
+                            + "AuthInterceptor 未覆盖该路径？检查 WebMvcConfig 的 addPathPatterns"
+                            + "（pattern 不带 context-path 前缀）。本次调用不落库。",
+                    provider, model, endpoint);
+            return;
+        }
+
         LlmRequestLog log = new LlmRequestLog();
         log.setId(UUID.randomUUID().toString());
         log.setUserId(userId);
