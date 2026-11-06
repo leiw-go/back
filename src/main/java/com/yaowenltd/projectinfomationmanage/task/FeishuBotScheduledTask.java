@@ -18,9 +18,8 @@ import org.springframework.stereotype.Component;
  * </p>
  *
  * <p>
- * <strong>关闭方式</strong>：将 {@code feishu.webhook.enabled} 设为 false，
- * 或通过 {@code /actuator/refresh} 重新发布 Nacos 配置后即可实时生效，
- * 无需重启应用.
+ * <strong>关闭方式</strong>：将 {@code feishu.webhook.enabled} 设为 false
+ * （即环境变量 {@code FEISHU_WEBHOOK_ENABLED=false}）后重启应用即可生效.
  * </p>
  */
 @Component

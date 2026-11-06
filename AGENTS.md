@@ -8,7 +8,7 @@
 ## 1. 项目速览
 
 - **仓库根名**：`prompt-design-api`（Maven artifactId 是 `ProjectInfomationManage`，Spring 应用名也是 `ProjectInfomationManage`）
-- **定位**：Spring Boot 后端 + Nacos 配置中心 + Jenkins 容器化部署
+- **定位**：Spring Boot 后端 + Jenkins 容器化部署
 - **包名根**：`com.yaowenltd.projectinfomationmanage`
 - **监听端口**：`8888`
 - **默认 profile**：`dev`（也可由 `SPRING_PROFILES_ACTIVE` 覆盖）
@@ -20,13 +20,12 @@
 | 领域 | 选型 |
 | --- | --- |
 | Web | Spring Boot 3.2.4 + Spring MVC |
-| 微服务 | Spring Cloud Alibaba 2023.0.1.0（已自带 BOM） |
-| 配置/注册中心 | Nacos（config + discovery） |
+| 配置来源 | 仓库内 `application-{profile}.yml` + 环境变量注入（**无外部配置中心**） |
 | ORM | MyBatis 3.0.3（XML 映射在 `src/main/resources/mapper/`） |
 | 数据库 | dev / test / prod: MySQL Connector/J（test 不连 MySQL，依赖 JUnit 5 + MockBean 上下文冒烟） |
 | 鉴权 | JWT (`io.jsonwebtoken:jjwt 0.12.5`) + Spring Security Crypto BCrypt |
 | 文档 | springdoc-openapi-starter-webmvc-ui 2.6.0（Swagger UI 在 `/swagger-ui.html`） |
-| 运维 | spring-boot-starter-actuator（暴露 `refresh / health / info`） |
+| 运维 | spring-boot-starter-actuator（暴露 `health / info`） |
 | 外部 HTTP | `RestTemplate`（固定默认超时 5s） |
 | 对象映射 | Lombok（仅编译期，必须装 Lombok 插件） |
 | 终端/Java 版本 | Eclipse Temurin 17（JDK 17 / JRE 17-jre-alpine） |
@@ -40,15 +39,14 @@
 ├── pom.xml                              # Maven 主 POM
 ├── settings.xml                         # Maven 镜像（华为云，重要！）
 ├── Dockerfile                           # 后端多阶段镜像
-├── docker-compose.nacos.yml             # 本机 dev 用 Nacos
+├── docker-compose.mysql.yml             # 本机 dev 用 MySQL（表结构由应用启动时自动初始化）
 ├── Jenkinsfile                          # Jenkins 流水线入口
 ├── checkstyle_huawei.xml                # 华为代码规约（当前未在构建阶段强制）
 ├── scripts/
-│   ├── check-nacos.sh                   # 部署前探活 Nacos
-│   ├── publish-config.sh                # 把本地 YAML 推送到 Nacos
-│   └── deploy-backend.sh                # 启/重启后端容器
+│   ├── deploy-backend.sh                # 启/重启后端容器
+│   └── pick-docker-mirror.sh            # 探测可用 docker 镜像源
 ├── src/main/java/com/yaowenltd/projectinfomationmanage/
-│   ├── ProjectInformationManageApplication.java   # 主类（@EnableDiscoveryClient + @EnableScheduling）
+│   ├── ProjectInformationManageApplication.java   # 主类（@EnableScheduling）
 │   ├── common/      # ResponseResult / GlobalExceptionHandler / JwtUtil / 异常
 │   ├── config/      # AuthInterceptor / WebMvcConfig / CorsConfig / SwaggerConfig / *Properties
 │   ├── controller/  # Auth / User / Role / Product / LotteryPeriod
@@ -59,9 +57,9 @@
 │   ├── service/impl # Spring 实现
 │   └── task/        # @Scheduled 任务（飞书机器人）
 ├── src/main/resources/
-│   ├── application.yml          # 公共 Nacos 配置 + 默认值
-│   ├── application-dev.yml      # dev 覆盖（目前刻意留空）
-│   ├── application-prod.yml     # prod 覆盖（host.docker.internal + nacos/nacos）
+│   ├── application.yml          # 公共默认值（server / mybatis / springdoc / actuator / jwt 占位）
+│   ├── application-dev.yml      # dev 覆盖（datasource / sql.init / feishu / jwt）
+│   ├── application-prod.yml     # prod 覆盖（datasource / sql.init / jwt / feishu，均走 ${ENV:default}）
 │   ├── mapper/*.xml             # MyBatis 映射
 │   ├── META-INF/                # （空，可放 spring.factories 等）
 │   └── sql/schema.sql + data.sql + data-user.sql
@@ -78,14 +76,16 @@
 # 编译（首次会拉依赖，慢）
 ./mvnw -B -DskipTests package
 
-# 跑测试（不连 MySQL/Nacos，纯 JUnit 5 单元测试 + MockBean 上下文冒烟；详见 application-test.yml）
+# 跑测试（不连 MySQL，纯 JUnit 5 单元测试 + MockBean 上下文冒烟；详见 application-test.yml）
 ./mvnw -B test
+
+# 本机起 MySQL（一次性；dev profile 必需）
+docker compose -f docker-compose.mysql.yml up -d
+#   → 127.0.0.1:13306，库 project_info_manage，root / 123456
+#   → 表结构与种子数据由应用启动时自动执行（application-dev.yml 的 spring.sql.init.mode=always）
 
 # 本机直接 Run（dev profile）
 SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
-
-# 本机起 Nacos（一次性）
-docker compose -f docker-compose.nacos.yml up -d
 
 # 直接打 Docker 镜像
 docker build -f Dockerfile -t leiw-go/back:dev .
@@ -97,25 +97,27 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 ## 4. 配置 / Profile 约定
 
-- `application.yml` 是公共底座，提供 Nacos 连接、actuator 暴露、feishu 集成所需的字段。
-- `application-dev.yml` **几乎是空文件**（故意留空），用 `docker-compose.nacos.yml` 提供本地 Nacos。
-- `application-prod.yml` 仅覆盖 Nacos 的 `server-addr` / `username` / `password`，靠 `host.docker.internal:8848`。
-- 敏感字段（生产 `datasource` / `jwt` / sql.init）放在 Nacos 的 `ProjectInfomationManage-prod.yaml`，**不要**塞进仓库。
-- dataId 命名约定：`ProjectInfomationManage-${spring.profiles.active}.yaml`。
-- Spring Cloud Alibaba 2023.0.1.0 在 `spring.config.import` 中必须**显式**写出后缀，所以 `application.yml` 里那里要写完整 dataId。
-- 切换远程 Nacos：`export NACOS_SERVER_ADDR=... NACOS_USERNAME=... NACOS_PASSWORD=...` 即可。
+- **没有配置中心**。所有配置都在仓库内的 `application.yml` / `application-{profile}.yml` 里。
+- `application.yml` 是公共底座：server / spring 应用名 / profile / mybatis / springdoc / actuator 暴露面 / jwt 占位。
+- `application-dev.yml` 是 dev 的**唯一**来源：本地 MySQL（`127.0.0.1:13306`，库 `project_info_manage`，`root/123456`，由 `docker-compose.mysql.yml` 提供）、`sql.init`、feishu、jwt。
+- `application-prod.yml` 是 prod 的**唯一**来源：datasource / `sql.init` / jwt / feishu。
+- 敏感值一律用 `${ENV:default}` 占位，由 Jenkins 参数或 Docker 环境变量注入；**不要**把真实凭据写进仓库。
+  - `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` / `JWT_SECRET` / `JWT_EXPIRATION`
+  - `FEISHU_WEBHOOK_URL` / `FEISHU_WEBHOOK_ENABLED` / `FEISHU_WEBHOOK_TIMEOUT_MS` / `FEISHU_WEBHOOK_SECRET`
+- **改配置需要重启应用**（没有 `/actuator/refresh` 热刷新端点）。
 
 ### 几个不易察觉的配置陷阱
 
-- `spring.cloud.nacos.config.fail-fast: false` + `register-enabled: false`：本机没 Nacos 时也能起服务，只是配置走默认。
-- `management.endpoints.web.exposure.include: refresh,health,info`：`refresh` 暴露出来是为了给运维在不发重启的前提下强制刷新一次 Nacos 配置。
+- `jwt.secret` 在 base `application.yml` 里默认是空串。生产必须注入 `JWT_SECRET`，否则登录签发的 token 无法被后续请求校验。
 - `feishu.webhook.secret` 留空表示未加签；如果生产开了加签却留空会得到 `190002 params error`。
+- profile 文件里的同名键会覆盖 base `application.yml` 的值 —— base 里的 `jwt` 只是兜底默认值。
 
 ---
 
 ## 5. 鉴权 / 接口约定
 
 - 拦截器：`AuthInterceptor` 注册在 `/api/**`，所有 `/api/...` 默认需要 JWT。
+- ⚠️ **拦截路径不写 context-path**：`server.servlet.context-path` 是 `/design`，该前缀在进入 DispatcherServlet **之前**就被剥离，所以拦截器匹配的是 `/api/**` 而不是 `/design/api/**`。写成后者会**静默失效**（拦截器一次都不触发，所有 `/api/**` 端点变成免鉴权）—— 2026-11-06 修过一次，勿改回。
 - 例外：在 controller **方法或类**上标 `@SkipAuth` 即可（不是 `@RequestMapping` 级）。当前放行的有：
   - `AuthController#register`
   - `AuthController#login`
@@ -151,7 +153,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 ## 8. 飞书机器人 / 定时任务
 
 - `FeishuBotScheduledTask#pushHelloWorld` 当前 `@Scheduled` 注释掉了——**改 cron 时记得把注释打开**。
-- 关闭方式：把 `feishu.webhook.enabled` 改 `false`（Nacos 改完推一次，等几秒生效，无需重启）。
+- 关闭方式：把 `feishu.webhook.enabled` 改 `false`（即环境变量 `FEISHU_WEBHOOK_ENABLED=false`）后重启应用生效。
 - 加签：开启加签时 `feishu.webhook.secret` 必须配上 `sec-...` 串；当前实现**尚未**实现加签算法（只有 secret 字段占位）。
 
 ---
@@ -167,17 +169,18 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 5. 在 Swagger 上加 `@Tag` / `@Operation`，不要复制粘贴无注解的接口。
 6. 写 `schema.sql` + `data.sql` 做迁移。
 
-### 9.2 改 Nacos 配置
+### 9.2 改配置
 
-- 改 `application.yml` / `*-dev.yml` / `*-prod.yml` = 改默认值。
-- 改 Nacos 线上配置 = 改 `scripts/publish-config.sh` 引用的那个外部 YAML 仓库（**不在本仓库**）。
-- 涉及 `feishu.*` / `biz.*` 的字段必须走 `@RefreshScope`，否则改完不生效。
+- 改 `application.yml` / `*-dev.yml` / `*-prod.yml` = 改默认值（结构在仓库里，值用 `${ENV:default}` 占位）。
+- 生产实际生效的值来自 Jenkins 参数 / Docker 环境变量，改完需要**重启容器**才生效。
+- **不要**新增 `@RefreshScope` —— 项目的 `spring-cloud-context` 依赖已随 Nacos 一并移除，该注解不存在。
 
 ### 9.3 改部署
 
 - 改 `Dockerfile`：注意 `target/ProjectInfomationManage.jar` 是 fat-jar 的预期文件名，**不要**改 finalName。
 - 改 `Jenkinsfile` / `scripts/*.sh`：保持 `set -eu` + 显式 `trap rm -f`，别让临时文件留在 Jenkins agent。
-- 改 `docker-compose.nacos.yml`：`MODE: standalone` + 免 MySQL 是 dev 约定；生产请用 Nacos 官方 MySQL 模式。
+- `scripts/deploy-backend.sh` 的位置参数顺序：`<name> <port> <profile> <network> <image> [db_url] [db_user] [db_pass] [jwt_secret] [jwt_expiration]` —— 改签名时要同步改 `Jenkinsfile` 里的调用。
+- 飞书 webhook 的生产配置（原先在 Nacos）现在通过宿主机环境变量 `FEISHU_WEBHOOK_URL` / `FEISHU_WEBHOOK_ENABLED` / `FEISHU_WEBHOOK_TIMEOUT_MS` / `FEISHU_WEBHOOK_SECRET` 透传进容器；未设置则回落到 `application-{profile}.yml` 的默认值。
 
 ---
 
@@ -202,12 +205,12 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 ## 11. 测试
 
-- **纯单元测试**（如 `BCryptPasswordEncoderTests`）只使用 JUnit 5 (`org.junit.jupiter.api.Test`)，不依赖 Spring 上下文、不连接 MySQL/Nacos/任何外部基础设施，`./mvnw test` 离线即可跑通。
-- **上下文冒烟测试**（如 `ProjectInformationManageApplicationTests`、`ProdProfileWithoutNacosTests`）使用 `@SpringBootTest`，但已在测试类自身通过 `spring.autoconfigure.exclude` 排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`、禁用 Nacos config / discovery / service-registry，并对七个 Mapper（`UserMapper` / `RoleMapper` / `UserRoleMapper` / `PermissionMapper` / `RolePermissionMapper` / `ProductMapper` / `LotteryPeriodMapper`）使用 `@MockBean` 占位；不需要外部 MySQL/Nacos 即可完成 context 加载冒烟。
-- 测试 profile：`src/test/resources/application-test.yml` 关闭所有外部依赖（无 datasource、无 Nacos、无 SQL 初始化），仅保留 `jwt.secret` / `jwt.expiration` 占位（`JwtUtil` `@Value` 必填）。
+- 当前 `src/test` 下只有 `BCryptPasswordEncoderTests`（纯单元测试）。
+- **纯单元测试**只使用 JUnit 5 (`org.junit.jupiter.api.Test`)，不依赖 Spring 上下文、不连接 MySQL/任何外部基础设施，`./mvnw test` 离线即可跑通。
+- **上下文冒烟测试**（如需新增）使用 `@SpringBootTest`，但要在测试类自身通过 `spring.autoconfigure.exclude` 排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`，并对全部 Mapper（`UserMapper` / `RoleMapper` / `UserRoleMapper` / `PermissionMapper` / `RolePermissionMapper` / `ProductMapper` / `LotteryPeriodMapper`）使用 `@MockBean` 占位；不需要外部 MySQL 即可完成 context 加载冒烟。
+- 测试 profile：`src/test/resources/application-test.yml` 关闭 SQL 初始化（`spring.sql.init.mode: never`），仅保留 `jwt.secret` / `jwt.expiration` 占位（`JwtUtil` `@Value` 必填）。项目已无 Nacos，无需再关 config / discovery。
 - 新增测试类放 `src/test/java/.../<被测类名>Tests.java`；纯逻辑测试默认按 JUnit 5 写，不引入 `@SpringBootTest`。
-- 上下文冒烟测试沿用 `ProjectInformationManageApplicationTests#contextLoads` 风格。
-- **不要**把外部依赖（真实 Nacos / MySQL）耦合进单元测试；要写集成测试请用 Testcontainers + Failsafe 插件（`*IT.java`），与单元测试目录/阶段分离。
+- **不要**把外部依赖（真实 MySQL）耦合进单元测试；要写集成测试请用 Testcontainers + Failsafe 插件（`*IT.java`），与单元测试目录/阶段分离。
 
 ---
 
@@ -217,7 +220,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 - 提交信息走约定式（看 `git log` 历史：`add ...` / `fix(scope): ...`）。
 - 一次提交只做一件事，至少包含：源码 + 相关测试 + 相关 `schema.sql`/`data.sql`。
 - 改公共 Bean / 拦截器 / 拦截路径：`/api/**` 时一定更新 `WebMvcConfig`。
-- 改 `pom.xml`：升级 Spring Boot / Spring Cloud Alibaba 时**必须**同时核对 `bootstrap.yml` / `application.yml` 的配置项迁移。
+- 改 `pom.xml`：升级 Spring Boot 时**必须**同时核对 `application.yml` 的配置项迁移。
 
 ---
 
@@ -227,7 +230,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 - [ ] 跑过 `./mvnw -B -DskipTests package` 至少一次，确认基线干净。
 - [ ] 跑过 `./mvnw -B test` 至少一次。
-- [ ] 涉及 Nacos 配置：先看 `application.yml` 默认值，再决定走 Nacos 还是本地。
+- [ ] 涉及配置：先看 `application.yml` 默认值与 `application-{profile}.yml` 的占位符，再决定改仓库还是改环境变量。
 - [ ] 涉及鉴权：默认 `/api/**` 需要 JWT，需要时显式 `@SkipAuth`。
 - [ ] 涉及 DB：先确认表字段是否已存在，**不要**想当然加列。
 - [ ] 涉及飞书：先确认 `feishu.webhook.enabled` 默认值，**不要**误触发真实推送。

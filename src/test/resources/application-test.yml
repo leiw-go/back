@@ -1,7 +1,7 @@
 # 测试 profile —— 无外部依赖
 #   - 不连接 MySQL：DataSource / MyBatis 自动配置已在测试类自身显式排除；
-#     七个 Mapper 全部 @MockBean 占位。
-#   - 不连接 Nacos：config / discovery / service-registry 全部关闭。
+#     Mapper 全部 @MockBean 占位。
+#   - 无配置中心 / 服务注册：项目已移除 Nacos 与 Spring Cloud Alibaba。
 #   - schema.sql / data.sql 不在测试阶段执行；如需集成验证请另起 Testcontainers 任务。
 jwt:
   secret: ${JWT_SECRET:YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcA==}
@@ -10,16 +10,3 @@ spring:
   sql:
     init:
       mode: never
-  cloud:
-    nacos:
-      config:
-        enabled: false
-      discovery:
-        enabled: false
-        register-enabled: false
-        fail-fast: false
-    discovery:
-      enabled: false
-    service-registry:
-      auto-registration:
-        enabled: false

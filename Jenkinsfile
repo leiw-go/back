@@ -1,7 +1,8 @@
 // ============================================================
 // Jenkinsfile — 部署 Backend 到本机 Docker
-//   - 假设 backend / mysql / jenkins / nacos 已在同一 docker user-defined 网络里
+//   - 假设 backend / mysql / jenkins 已在同一 docker user-defined 网络里
 //   - 容器之间用「容器名」互通（Docker 内置 DNS）
+//   - 配置全部来自仓库内 application-{profile}.yml + 环境变量注入，无外部配置中心
 //   - 实际逻辑都在 scripts/*.sh 里，本文件只负责串流程
 // ============================================================
 pipeline {
@@ -16,14 +17,7 @@ pipeline {
         string(name: 'BACKEND_PORT',  defaultValue: '8888',    description: '后端宿主机端口')
         string(name: 'BACKEND_NAME',  defaultValue: 'backend', description: '后端容器名')
 
-        // Nacos（同 docker 网络，直接用容器名；默认可选，连接失败仍继续部署）
-        string(name: 'NACOS_HOST',    defaultValue: 'nacos',   description: 'Nacos 主机名')
-        string(name: 'NACOS_PORT',    defaultValue: '8848',    description: 'Nacos HTTP 端口')
-        string(name: 'NACOS_USER',    defaultValue: 'nacosadmin', description: 'Nacos 用户名')
-        password(name: 'NACOS_PASSWORD', defaultValue: 'zVndnMGgkytNH7V0iJg1eqc1hwcTSq9', description: 'Nacos 密码（请使用 Jenkins 凭据/参数注入）')
-        booleanParam(name: 'STRICT_NACOS', defaultValue: false, description: 'Nacos 不可用时是否终止部署')
-
-        // prod 脱离 Nacos 启动所需配置
+        // 后端启动所需配置（由环境变量注入容器）
         string(name: 'DB_URL', defaultValue: 'jdbc:mysql://mysql:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8', description: 'JDBC URL')
         string(name: 'DB_USERNAME', defaultValue: 'root', description: '数据库用户名')
         password(name: 'DB_PASSWORD', defaultValue: 'Root@123456', description: '数据库密码（请使用 Jenkins 凭据/参数注入）')
@@ -33,9 +27,6 @@ pipeline {
         // 所有服务所在的 docker 网络（docker network ls 查看）。缺省 deploy-net；
         // Jenkins 在"Build with Parameters"里若被清空,这里兜底回 deploy-net
         string(name: 'NETWORK_NAME',  defaultValue: 'deploy-net', description: 'docker 网络名(留空回退到 deploy-net)')
-
-        // 配置发布（可选）
-        string(name: 'CONFIG_REPO_DIR', defaultValue: '',      description: '本地 YAML 目录，留空跳过')
     }
 
     environment {
@@ -49,42 +40,7 @@ pipeline {
 
     stages {
 
-        stage('1. Check Nacos') {
-            steps {
-                script {
-                    // 默认 STRICT_NACOS=false：Nacos 不可达仅告警，继续构建/部署。
-                    try {
-                        sh '''
-                            set +x
-                            bash scripts/check-nacos.sh \
-                                "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD"
-                        '''
-                        env.NACOS_STATUS = 'OK'
-                    } catch (Exception e) {
-                        if (params.STRICT_NACOS) {
-                            error("Nacos unreachable and STRICT_NACOS=true: ${e.message}")
-                        }
-                        echo "⚠️ Nacos unreachable or auth failed: ${e.message}"
-                        echo "   backend will start with env-provided DB/JWT only"
-                        env.NACOS_STATUS = 'UNREACHABLE'
-                    }
-                }
-            }
-        }
-
-        stage('2. Publish Config to Nacos') {
-            when { expression { return env.NACOS_STATUS == 'OK' && params.CONFIG_REPO_DIR?.trim() } }
-            steps {
-                sh '''
-                    set +x
-                    bash scripts/publish-config.sh \
-                        "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD" \
-                        "$PROFILE" "$CONFIG_REPO_DIR"
-                '''
-            }
-        }
-
-        stage('3. Build Backend Image') {
+        stage('1. Build Backend Image') {
             steps {
                 // 探测可用的 docker 镜像源（规避单一源挂掉导致 build 全失败）
                 // env.* 赋值 / if 判定都属任意 Groovy,必须包在 script 块里
@@ -103,7 +59,7 @@ pipeline {
             }
         }
 
-        stage('4. Deploy Backend Container') {
+        stage('2. Deploy Backend Container') {
             steps {
                 sh '''
                     set +x
@@ -111,7 +67,6 @@ pipeline {
                     : "${NETWORK_NAME:=deploy-net}"
                     bash scripts/deploy-backend.sh \
                         "$BACKEND_NAME" "$BACKEND_PORT" "$PROFILE" \
-                        "$NACOS_HOST" "$NACOS_PORT" "$NACOS_USER" "$NACOS_PASSWORD" \
                         "$NETWORK_NAME" "${BACKEND_IMAGE}:${BACKEND_TAG}" \
                         "$DB_URL" "$DB_USERNAME" "$DB_PASSWORD" \
                         "$JWT_SECRET" "$JWT_EXPIRATION"
@@ -123,7 +78,6 @@ pipeline {
     post {
         success {
             echo "✅ deploy OK"
-            echo "   nacos:   http://${params.NACOS_HOST}:${params.NACOS_PORT}/nacos"
             echo "   backend: docker logs -f ${params.BACKEND_NAME}  (port ${params.BACKEND_PORT})"
             echo "   test:    curl http://localhost:${params.BACKEND_PORT}/api-docs"
         }

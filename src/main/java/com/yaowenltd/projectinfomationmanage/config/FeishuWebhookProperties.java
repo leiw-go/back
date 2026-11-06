@@ -5,15 +5,14 @@
 package com.yaowenltd.projectinfomationmanage.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.stereotype.Component;
 
 /**
  * 飞书机器人 webhook 配置.
  * <p>
- * 对应 {@code feishu.webhook.*} 配置块，绑定机器人接入所需的字段，
- * 挂接到 {@link RefreshScope} 后即可在 Nacos 上发布变更并通过
- * {@code /actuator/refresh} 触发实时刷新，无需重启应用.
+ * 对应 {@code feishu.webhook.*} 配置块，绑定机器人接入所需的字段.
+ * 配置来源为仓库内的 {@code application-{profile}.yml} 与环境变量；
+ * 修改环境变量（如 {@code FEISHU_WEBHOOK_ENABLED}）后需重启应用才能生效.
  * </p>
  *
  * <p>
@@ -28,7 +27,6 @@ import org.springframework.stereotype.Component;
  * </p>
  */
 @Component
-@RefreshScope
 @ConfigurationProperties(prefix = "feishu.webhook")
 public class FeishuWebhookProperties {
 

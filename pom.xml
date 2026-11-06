@@ -28,21 +28,7 @@
     </scm>
     <properties>
         <java.version>17</java.version>
-        <!-- Spring Cloud Alibaba BOM (兼容 Spring Cloud 2023.0.1 + Spring Boot 3.2.x) -->
-        <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.alibaba.cloud</groupId>
-                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
-                <version>${spring-cloud-alibaba.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -95,19 +81,7 @@
             <version>2.6.0</version>
         </dependency>
 
-        <!-- Nacos Config Client (Spring Cloud Alibaba) -->
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-        </dependency>
-
-        <!-- Nacos Discovery Client (Service Registration & Discovery) -->
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-        </dependency>
-
-        <!-- Actuator — exposes /actuator/refresh (manual refresh trigger) + /actuator/health -->
+        <!-- Actuator — exposes /actuator/health + /actuator/info -->
         <!-- Spring Boot 3.x moved from spring-boot-starter-actuator; version inherits from parent -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -10,32 +10,6 @@ spring:
     name: ProjectInfomationManage
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-  # Spring Cloud Alibaba 2023+ 需要显式 import Nacos 配置
-  # dataId 必须带 file-extension 后缀，因为 file-extension 不会自动拼接到 import 中的 dataId
-  # 敏感配置（datasource / jwt / sql.init）由 Nacos 提供；
-  # 默认 dataId 约定：${spring.application.name}-${spring.profiles.active}.yaml
-  #
-  # base 里提供完整 Nacos 配置，默认值按 dev 设计（localhost:8848，空凭证，对应本地 docker compose）。
-  #   prod 覆盖：application-prod.yml（host.docker.internal:8848 + nacos/nacos）
-  #   dev 不需要覆盖文件（继承 base 即可）
-  config:
-    import: "optional:nacos:ProjectInfomationManage-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}"
-  cloud:
-    nacos:
-      config:
-        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: ${NACOS_NAMESPACE:}
-        group: ${NACOS_GROUP:DEFAULT_GROUP}
-        file-extension: yaml
-        username: ${NACOS_USERNAME:nacos}
-        password: ${NACOS_PASSWORD:nacos}
-        # Nacos 暂不可用时仍可启动（dev/CI 友好）
-        fail-fast: false
-        # 显式开启配置变更推送：Nacos Client 收到 ConfigService 变更后会发 RefreshEvent，
-        # @RefreshScope Bean 接到事件后销毁重建。默认就是 true，这里只是表达意图。
-        refresh-enabled: true
-      discovery:
-        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -50,18 +24,22 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-# Actuator 暴露面控制：默认只开 health/info（健康/存活探针），
-# 这里额外开 refresh —— 让运维能在不发重启的前提下强制刷新一次 Nacos 配置。
+# Actuator 暴露面控制：只开 health/info（健康/存活探针）。
+# 注：早期版本曾额外开 refresh 用于热刷新 Nacos 配置，该能力已随配置中心一并移除。
 management:
   endpoints:
     web:
       exposure:
-        include: refresh,health,info
+        include: health,info
   endpoint:
-    refresh:
-      access: read_only     # 默认就是 read_only，显式写出来防止被某个 yaml 关掉
     health:
       access: read_only
   info:
     env:
       enabled: false        # 关掉 info/env（暴露太多默认信息，不小心开可能被人扫描）
+
+# JWT 默认值。生产环境必须由 Jenkins / Docker 注入 JWT_SECRET，
+# application-prod.yml 中的同名键会覆盖这里的占位符。
+jwt:
+  secret: ${JWT_SECRET:}
+  expiration: ${JWT_EXPIRATION:86400000}
