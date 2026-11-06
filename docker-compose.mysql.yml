@@ -1,0 +1,36 @@
+# 本地开发用 MySQL（对应 application-dev.yml 的 datasource 配置）
+#   启动：docker compose -f docker-compose.mysql.yml up -d
+#   停止：docker compose -f docker-compose.mysql.yml down
+#   查看日志：docker logs -f mysql-simple
+#
+# 与 application-dev.yml 配套使用：SPRING_PROFILES_ACTIVE=dev
+#
+# 账号 / 库名与仓库内配置保持一致：
+#   host=127.0.0.1  port=13306  database=project_info_manage
+#   username=root   password=123456
+#
+# 表结构与种子数据由应用启动时自动执行（application-dev.yml 中
+# spring.sql.init.mode=always），指向 classpath:sql/schema.sql + data.sql + data-user.sql，
+# 因此本容器**不需要**预置任何 .sql 文件。
+services:
+  mysql-simple:
+    # 国内网络走 daocloud mirror（docker.io 直连经常超时/被墙）
+    image: docker.m.daocloud.io/library/mysql:8.0
+    container_name: mysql-simple
+    restart: unless-stopped
+    ports:
+      - "13306:3306"   # 宿主机 13306 → 容器 3306（避开本机可能已有的 3306）
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: project_info_manage
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
