@@ -51,8 +51,11 @@ dev profile 用宿主机 `127.0.0.1:13306`，库 `project_info_manage`，账号 
 docker compose -f docker-compose.mysql.yml up -d
 ```
 
-表结构与种子数据**不需要手动导入** —— 应用启动时会自动执行 `src/main/resources/sql/` 下的
-`schema.sql` + `data.sql` + `data-user.sql`（见 `application-dev.yml` 的 `spring.sql.init.mode=always`）。
+表结构与种子数据**不需要手动导入** —— 应用启动时会自动执行 Flyway 迁移
+（`src/main/resources/db/migration/` 下的 `V*__*.sql`）：
+
+- **空库**：依次执行 `V1`（建表 + 种子数据）、`V2`（字符集归一 / `ON UPDATE CURRENT_TIMESTAMP` / 二级索引）
+- **已有库**：baseline 登记为 V1，只补跑 `V2`
 
 停止：`docker compose -f docker-compose.mysql.yml down`
 
@@ -100,9 +103,9 @@ curl -s -H "Authorization: Bearer <token>" http://localhost:8888/design/api/user
 | 文件 | 作用 |
 | --- | --- |
 | `src/main/resources/application.yml` | 公共底座：server / 应用名 / profile / mybatis / springdoc / actuator 暴露面 / jwt 默认值 |
-| `src/main/resources/application-dev.yml` | dev 覆盖：本地 MySQL、`sql.init`、feishu、jwt |
-| `src/main/resources/application-prod.yml` | prod 覆盖：datasource、`sql.init`、jwt、feishu（均走 `${ENV:default}`） |
-| `src/test/resources/application-test.yml` | 测试 profile：关闭 SQL 初始化，仅保留 jwt 占位 |
+| `src/main/resources/application-dev.yml` | dev 覆盖：本地 MySQL、Flyway baseline、feishu、jwt |
+| `src/main/resources/application-prod.yml` | prod 覆盖：datasource、Flyway 安全开关、jwt、feishu（均走 `${ENV:default}`） |
+| `src/test/resources/application-test.yml` | 测试 profile：关闭 SQL 初始化与 Flyway，仅保留 jwt 占位 |
 
 ### 可注入的环境变量
 
@@ -117,6 +120,8 @@ curl -s -H "Authorization: Bearer <token>" http://localhost:8888/design/api/user
 | `FEISHU_WEBHOOK_ENABLED` | `false`（prod） | 是否启用飞书推送 |
 | `FEISHU_WEBHOOK_TIMEOUT_MS` | `3000` | webhook 超时 |
 | `FEISHU_WEBHOOK_SECRET` | 空 | 飞书加签密钥（`sec-...`） |
+| `FLYWAY_ENABLED` | `true` | 是否启用 Flyway 迁移（一般不要关） |
+| `FLYWAY_BASELINE_ON_MIGRATE` | dev `true` / prod `false` | prod 首次接管存量库时需显式置 `true` |
 
 > 生产环境的 `JWT_SECRET` 默认是空串，**必须**由部署平台注入，否则签发的 token 无法通过校验。
 
@@ -223,7 +228,7 @@ curl -s -H "Authorization: Bearer <token>" http://localhost:8888/design/api/user
 - 拦截器 `AuthInterceptor` 注册在 **`/api/**`**（注意：**不要**把 context-path `/design` 写进去 —— 它在进入 DispatcherServlet 前会被剥离，写成 `/design/api/**` 会让拦截器静默失效）。
 - 免鉴权接口：在 controller **方法或类**上标 `@SkipAuth`（当前是 `AuthController#register` 与 `#login`）。
 - 请求头：`Authorization: Bearer <token>`；缺失 / 过期 / 非法 → `code=401`。
-- 默认种子账号（由 `data.sql` / `data-user.sql` 写入）：
+- 默认种子账号（由 `db/migration/V1__baseline_project_info_manage.sql` 写入）：
 
 | 账号 | 密码 | 角色 |
 | --- | --- | --- |
@@ -268,6 +273,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 | `NETWORK_NAME` | `deploy-net` | docker 网络（不存在会自动创建） |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 见上表 | 数据库连接 |
 | `JWT_SECRET` / `JWT_EXPIRATION` | 见上表 | JWT 配置 |
+| `FLYWAY_BASELINE_ON_MIGRATE` | `false` | Flyway 首次接管存量库时开启 baseline（prod 存量库首次上线需置 `true`） |
 
 部署脚本也可以单独跑（参数顺序固定）：
 
@@ -307,7 +313,7 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> \
 ├── src/main/resources/
 │   ├── application.yml / -dev.yml / -prod.yml
 │   ├── mapper/*.xml             # MyBatis 映射
-│   └── sql/schema.sql + data.sql + data-user.sql
+│   └── db/migration/V*__*.sql   # Flyway 版本化迁移
 └── src/test/...                 # JUnit 5 + Spring Boot Test
 ```
 
@@ -330,7 +336,22 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> \
 - 主键 `VARCHAR(36)`，由应用生成 UUID。
 - 字段 `snake_case`；MyBatis 开了 `map-underscore-to-camel-case`。
 - `t_user` / `t_role` / `t_product` 上有 `status` 字段（`1` 启用 / `0` 停用）。**当前实现里的 DELETE 是物理删除**（`DELETE FROM ... WHERE id = ?`），与 `AGENTS.md` 里"优先软删除"的约定不一致 —— 新增/改造删除逻辑时请按软删除来做。
-- 新增表同步改 `schema.sql`；新增种子数据同步改 `data.sql`（用 `INSERT IGNORE`）。
+- **不使用物理外键**：表结构里没有 `FOREIGN KEY` 约束，关联关系统一用「逻辑外键」维护 —— 查询走 MyBatis `JOIN`，引用完整性和级联清理由 Service 层负责（删除用户/角色时先清关联表）。关联列上仍显式建了索引供 JOIN 使用。
+- **改表结构走 Flyway**：新增 `src/main/resources/db/migration/V<N>__<描述>.sql`，版本号连续递增。已执行过的迁移文件**不可修改**（校验和不匹配会导致启动失败），要改就新增一个版本。
+- 迁移里不要用 `INSERT IGNORE` —— 迁移只执行一次，出错应该直接失败。
+
+### 迁移与 baseline
+
+`spring.flyway.baseline-version: "1"` 决定了存量库怎么接入：
+
+| 库状态 | 行为 |
+| --- | --- |
+| 空库 | 依次执行 `V1`（建表 + 种子数据）、`V2`（字符集归一 / `ON UPDATE CURRENT_TIMESTAMP` / 二级索引） |
+| 已有非空库 | baseline 登记为 V1 → 跳过 V1 → 只补跑 `V2` |
+
+`V1` 写的是存量库原本就有的结构，`V2` 写的是改进项 —— 两条路径最终 schema **完全一致**。
+
+prod 的 `baseline-on-migrate` 默认为 `false`（避免连错库时静默 baseline），**首次接管存量生产库需显式传 `FLYWAY_BASELINE_ON_MIGRATE=true`**，否则启动会因"非空 schema 且未 baseline"直接失败。
 
 ---
 

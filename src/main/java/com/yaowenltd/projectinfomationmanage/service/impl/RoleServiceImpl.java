@@ -75,6 +75,7 @@ public class RoleServiceImpl implements RoleService {
 
         if (roleDto.getPermissionIds() != null) {
             for (String permissionId : roleDto.getPermissionIds()) {
+                validatePermissionExists(permissionId);
                 RolePermission rp = new RolePermission();
                 rp.setId(UUID.randomUUID().toString());
                 rp.setRoleId(id);
@@ -88,6 +89,23 @@ public class RoleServiceImpl implements RoleService {
         roleDto.setCreateTime(now);
         roleDto.setUpdateTime(now);
         return roleDto;
+    }
+
+    /**
+     * 校验权限 ID 是否存在.
+     * <p>
+     * 本项目不使用物理外键（见 AGENTS.md「外键约定」），引用完整性由应用层保证，
+     * 因此写入 {@code t_role_permission} 前必须先确认被引用的权限真实存在，
+     * 否则会留下孤儿行。
+     * </p>
+     *
+     * @param permissionId 待关联的权限 ID
+     * @throws IllegalArgumentException 当权限不存在时
+     */
+    private void validatePermissionExists(String permissionId) {
+        if (permissionMapper.findPermissionById(permissionId) == null) {
+            throw new IllegalArgumentException("permission not found: " + permissionId);
+        }
     }
 
     /**
@@ -117,6 +135,7 @@ public class RoleServiceImpl implements RoleService {
             rolePermissionMapper.deleteRolePermissionByRoleId(roleDto.getId());
             LocalDateTime now = LocalDateTime.now();
             for (String permissionId : roleDto.getPermissionIds()) {
+                validatePermissionExists(permissionId);
                 RolePermission rp = new RolePermission();
                 rp.setId(UUID.randomUUID().toString());
                 rp.setRoleId(roleDto.getId());

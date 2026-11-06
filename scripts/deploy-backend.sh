@@ -44,6 +44,15 @@ for FEISHU_KEY in FEISHU_WEBHOOK_URL FEISHU_WEBHOOK_ENABLED FEISHU_WEBHOOK_TIMEO
     FEISHU_VALUE="$(printenv "$FEISHU_KEY" || true)"
     if [ -n "$FEISHU_VALUE" ]; then printf '%s=%s\n' "$FEISHU_KEY" "$FEISHU_VALUE" >> "$ENV_FILE"; fi
 done
+
+# Flyway 开关（可选）：
+#   FLYWAY_ENABLED             关闭 Flyway 迁移（一般不要关）
+#   FLYWAY_BASELINE_ON_MIGRATE prod 首次接管存量库时需显式置 true，否则启动会因
+#                              "非空 schema 且未 baseline" 而失败
+for FLYWAY_KEY in FLYWAY_ENABLED FLYWAY_BASELINE_ON_MIGRATE; do
+    FLYWAY_VALUE="$(printenv "$FLYWAY_KEY" || true)"
+    if [ -n "$FLYWAY_VALUE" ]; then printf '%s=%s\n' "$FLYWAY_KEY" "$FLYWAY_VALUE" >> "$ENV_FILE"; fi
+done
 chmod 600 "$ENV_FILE"
 
 # ---- 启动容器 ----

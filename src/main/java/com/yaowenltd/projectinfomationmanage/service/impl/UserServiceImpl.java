@@ -4,6 +4,7 @@
 
 package com.yaowenltd.projectinfomationmanage.service.impl;
 
+import com.yaowenltd.projectinfomationmanage.mapper.RoleMapper;
 import com.yaowenltd.projectinfomationmanage.mapper.UserMapper;
 import com.yaowenltd.projectinfomationmanage.mapper.UserRoleMapper;
 import com.yaowenltd.projectinfomationmanage.model.dto.UserDto;
@@ -30,6 +31,8 @@ public class UserServiceImpl implements UserService {
 
     private final UserRoleMapper userRoleMapper;
 
+    private final RoleMapper roleMapper;
+
     private final PasswordEncoder passwordEncoder;
 
     /**
@@ -37,10 +40,12 @@ public class UserServiceImpl implements UserService {
      *
      * @param userMapper     用户 Mapper
      * @param userRoleMapper 用户-角色 Mapper
+     * @param roleMapper     角色 Mapper（用于校验关联的角色 ID 是否存在）
      */
-    public UserServiceImpl(UserMapper userMapper, UserRoleMapper userRoleMapper) {
+    public UserServiceImpl(UserMapper userMapper, UserRoleMapper userRoleMapper, RoleMapper roleMapper) {
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
+        this.roleMapper = roleMapper;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -70,6 +75,7 @@ public class UserServiceImpl implements UserService {
 
         if (userDto.getRoleIds() != null) {
             for (String roleId : userDto.getRoleIds()) {
+                validateRoleExists(roleId);
                 UserRole userRole = new UserRole();
                 userRole.setId(UUID.randomUUID().toString());
                 userRole.setUserId(id);
@@ -84,6 +90,23 @@ public class UserServiceImpl implements UserService {
         userDto.setCreateTime(now);
         userDto.setUpdateTime(now);
         return userDto;
+    }
+
+    /**
+     * 校验角色 ID 是否存在.
+     * <p>
+     * 本项目不使用物理外键（见 AGENTS.md「外键约定」），引用完整性由应用层保证，
+     * 因此写入 {@code t_user_role} 前必须先确认被引用的角色真实存在，
+     * 否则会留下孤儿行。
+     * </p>
+     *
+     * @param roleId 待关联的角色 ID
+     * @throws IllegalArgumentException 当角色不存在时
+     */
+    private void validateRoleExists(String roleId) {
+        if (roleMapper.findRoleById(roleId) == null) {
+            throw new IllegalArgumentException("role not found: " + roleId);
+        }
     }
 
     /**
@@ -117,6 +140,7 @@ public class UserServiceImpl implements UserService {
             userRoleMapper.deleteUserRoleByUserId(userDto.getId());
             LocalDateTime now = LocalDateTime.now();
             for (String roleId : userDto.getRoleIds()) {
+                validateRoleExists(roleId);
                 UserRole userRole = new UserRole();
                 userRole.setId(UUID.randomUUID().toString());
                 userRole.setUserId(userDto.getId());

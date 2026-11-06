@@ -9,9 +9,12 @@
 #   host=127.0.0.1  port=13306  database=project_info_manage
 #   username=root   password=123456
 #
-# 表结构与种子数据由应用启动时自动执行（application-dev.yml 中
-# spring.sql.init.mode=always），指向 classpath:sql/schema.sql + data.sql + data-user.sql，
-# 因此本容器**不需要**预置任何 .sql 文件。
+# 表结构与种子数据由应用启动时的 Flyway 迁移自动执行
+# （迁移文件在 classpath:db/migration/），因此本容器**不需要**预置任何 .sql 文件。
+#
+# 迁移行为：
+#   - 空库：依次执行 V1（建表 + 种子数据）、V2（字符集归一 / ON UPDATE / 二级索引）
+#   - 已有库：baseline 登记为 V1，只补跑 V2
 services:
   mysql-simple:
     # 国内网络走 daocloud mirror（docker.io 直连经常超时/被墙）

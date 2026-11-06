@@ -27,6 +27,10 @@ pipeline {
         // 所有服务所在的 docker 网络（docker network ls 查看）。缺省 deploy-net；
         // Jenkins 在"Build with Parameters"里若被清空,这里兜底回 deploy-net
         string(name: 'NETWORK_NAME',  defaultValue: 'deploy-net', description: 'docker 网络名(留空回退到 deploy-net)')
+
+        // Flyway：首次接管存量生产库时需置 true，把已有库登记为 baseline 版本。
+        // 之后每次部署都会 validate + 执行未跑过的迁移，此参数可恢复为 false。
+        booleanParam(name: 'FLYWAY_BASELINE_ON_MIGRATE', defaultValue: false, description: 'Flyway 首次接管存量库时开启 baseline')
     }
 
     environment {
@@ -65,6 +69,8 @@ pipeline {
                     set +x
                     # 兜底:如果 NETWORK_NAME 被清空,回退到 deploy-net(deploy-backend.sh 内部还会再兜一次)
                     : "${NETWORK_NAME:=deploy-net}"
+                    # Flyway 开关透传给容器（prod 首次接管存量库时需为 true）
+                    export FLYWAY_BASELINE_ON_MIGRATE="${FLYWAY_BASELINE_ON_MIGRATE:-false}"
                     bash scripts/deploy-backend.sh \
                         "$BACKEND_NAME" "$BACKEND_PORT" "$PROFILE" \
                         "$NETWORK_NAME" "${BACKEND_IMAGE}:${BACKEND_TAG}" \
