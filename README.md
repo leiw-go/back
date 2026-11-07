@@ -54,8 +54,8 @@ docker compose -f docker-compose.mysql.yml up -d
 表结构与种子数据**不需要手动导入** —— 应用启动时会自动执行 Flyway 迁移
 （`src/main/resources/db/migration/` 下的 `V*__*.sql`）：
 
-- **空库**：依次执行 `V1`（建表 + 种子数据）、`V2`（字符集归一 / `ON UPDATE CURRENT_TIMESTAMP` / 二级索引）
-- **已有库**：baseline 登记为 V1，只补跑 `V2`
+- **空库**：正常执行 `V1`（建表 + 种子数据）
+- **已有库**：baseline 登记为 V1，跳过 V1
 
 停止：`docker compose -f docker-compose.mysql.yml down`
 
@@ -228,7 +228,7 @@ curl -s -H "Authorization: Bearer <token>" http://localhost:8888/design/api/user
 - 拦截器 `AuthInterceptor` 注册在 **`/api/**`**（注意：**不要**把 context-path `/design` 写进去 —— 它在进入 DispatcherServlet 前会被剥离，写成 `/design/api/**` 会让拦截器静默失效）。
 - 免鉴权接口：在 controller **方法或类**上标 `@SkipAuth`（当前是 `AuthController#register` 与 `#login`）。
 - 请求头：`Authorization: Bearer <token>`；缺失 / 过期 / 非法 → `code=401`。
-- 默认种子账号（由 `db/migration/V1__baseline_project_info_manage.sql` 写入）：
+- 默认种子账号（由 `db/migration/V1__init_project_info_manage.sql` 写入）：
 
 | 账号 | 密码 | 角色 |
 | --- | --- | --- |
@@ -342,16 +342,21 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> \
 
 ### 迁移与 baseline
 
+当前只有一个迁移 `V1__init_project_info_manage.sql`：建 7 张表 + 种子数据，
+表结构**从一开始就没有物理外键**，字符集统一 utf8mb4_unicode_ci，`update_time` 由 MySQL 自动维护。
+
 `spring.flyway.baseline-version: "1"` 决定了存量库怎么接入：
 
 | 库状态 | 行为 |
 | --- | --- |
-| 空库 | 依次执行 `V1`（建表 + 种子数据）、`V2`（字符集归一 / `ON UPDATE CURRENT_TIMESTAMP` / 二级索引） |
-| 已有非空库 | baseline 登记为 V1 → 跳过 V1 → 只补跑 `V2` |
+| 空库 | 正常执行 V1 |
+| 已有非空库 | baseline 登记为 V1 → 跳过 V1（视为"结构已经是 V1 的样子"） |
 
-`V1` 写的是存量库原本就有的结构，`V2` 写的是改进项 —— 两条路径最终 schema **完全一致**。
+后续改表结构一律新增 `V2__xxx.sql`，**不要回头改 V1**（已执行过的迁移校验和不匹配会导致启动失败）。
 
 prod 的 `baseline-on-migrate` 默认为 `false`（避免连错库时静默 baseline），**首次接管存量生产库需显式传 `FLYWAY_BASELINE_ON_MIGRATE=true`**，否则启动会因"非空 schema 且未 baseline"直接失败。
+
+> 删改 `db/migration/` 下的文件后记得 `./mvnw clean package` —— 旧的 `.sql` 会残留在 `target/classes` 被打进 jar，Flyway 会报 "Found more than one migration with version N"。
 
 ---
 

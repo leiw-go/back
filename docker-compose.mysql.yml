@@ -13,8 +13,8 @@
 # （迁移文件在 classpath:db/migration/），因此本容器**不需要**预置任何 .sql 文件。
 #
 # 迁移行为：
-#   - 空库：依次执行 V1（建表 + 种子数据）、V2（字符集归一 / ON UPDATE / 二级索引）
-#   - 已有库：baseline 登记为 V1，只补跑 V2
+#   - 空库：正常执行 V1（建表 + 种子数据）
+#   - 已有库：baseline 登记为 V1，跳过 V1
 services:
   mysql-simple:
     # 国内网络走 daocloud mirror（docker.io 直连经常超时/被墙）

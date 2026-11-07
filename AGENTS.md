@@ -110,19 +110,18 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 ### 数据库迁移（Flyway）
 
 - 迁移文件在 `src/main/resources/db/migration/`，命名 `V<版本号>__<描述>.sql`。
-- 当前迁移清单：
+- 当前只有一个迁移：
 
   | 版本 | 文件 | 作用 |
   | --- | --- | --- |
-  | V1 | `V1__baseline_project_info_manage.sql` | 建 7 张表 + 种子数据（权限 / 角色 / admin / testuser） |
-  | V2 | `V2__enhance_schema.sql` | 字符集归一 utf8mb4_unicode_ci、`update_time` 加 `ON UPDATE CURRENT_TIMESTAMP`、补二级索引 |
-  | V3 | `V3__drop_foreign_keys.sql` | 摘掉存量库上的物理外键，统一逻辑 mapping |
-  | V4 | `V4__dedupe_association_tables.sql` | 清理关联表历史重复行（旧 `sql.init mode=always` 每次重启都插一份造成的） |
+  | V1 | `V1__init_project_info_manage.sql` | 建 7 张表（**无物理外键**、utf8mb4_unicode_ci、`update_time` 自动更新、索引齐全）+ 种子数据（12 权限 / 2 角色 / admin / testuser） |
 
-- `spring.flyway.baseline-version: "1"`：**已有非空库**首次接入时登记为"已到 V1"，跳过 V1、只跑 V2 及以后；**空库**从 V1 开始跑。
+- 后续改表结构一律**新增** `V2__xxx.sql`、`V3__xxx.sql`...，**不要回头改 V1**（已执行过的迁移校验和不匹配会导致启动失败）。
+- `spring.flyway.baseline-version: "1"`：**已有非空库**首次接入时登记为"已到 V1"，跳过 V1；**空库**正常执行 V1。
 - `spring.flyway.baseline-on-migrate`：dev 默认 `true`；**prod 默认 `false`** —— 首次接管存量生产库必须显式传 `FLYWAY_BASELINE_ON_MIGRATE=true`（Jenkins 参数或容器 env），否则会因"非空 schema 且未 baseline"直接启动失败。这是刻意的保护，避免连错库时静默 baseline。
 - `spring.flyway.clean-disabled: true` —— 禁止 `flyway clean`。
 - 迁移里不要用 `INSERT IGNORE` 掩盖错误；迁移只执行一次，出错应直接失败。
+- ⚠️ 删改 `src/main/resources/db/` 下的文件后要 **`./mvnw clean package`** —— 旧的 `.sql` 会残留在 `target/classes` 里被打进 jar，导致 Flyway 报 "Found more than one migration with version N"。
 
 ### 几个不易察觉的配置陷阱
 
@@ -142,7 +141,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
   - `AuthController#login`
 - JWT 头部：`Authorization: Bearer <token>`，没有 / 过期 / 非法 → `401 UnauthorizedException` → 经 `GlobalExceptionHandler` 返回 `code=401`。
 - 默认无权限注解 `@PreAuthorize` 之类；如果未来加 RBAC，请只变更 `AuthInterceptor` + `RoleController` 这一层，**不要**在每个 controller 上重复判断。
-- 默认账号在 `src/main/resources/db/migration/V1__baseline_project_info_manage.sql`：
+- 默认账号在 `src/main/resources/db/migration/V1__init_project_info_manage.sql`：
   - `admin / admin123`（ADMIN）
   - `testuser / test123456`（USER）
 
@@ -151,7 +150,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 ## 6. 数据库 / Mapper
 
 - 表结构与演示数据由 `src/main/resources/db/migration/V*__*.sql` 管理；**已执行的 migration 禁止修改**（Flyway 校验和不匹配会导致启动失败）。
-- 新增表 / 字段 / 索引 / 种子数据 → **新增递增版本的迁移**（例如 `V4__add_xxx.sql`），不要改旧版本，也不要回头改 `V1`。
+- 新增表 / 字段 / 索引 / 种子数据 → **新增递增版本的迁移**（例如 `V2__add_xxx.sql`），不要改旧版本，也不要回头改 `V1`。
 - 迁移命名约定：`V<版本号>__<下划线小写描述>.sql`，版本号连续递增，不复用已删除的版本号。
 - 主键策略：`UUID`（`String` 类型字段，与 MySQL `VARCHAR(36)` 配对）。
 - 字段命名：`snake_case`；MyBatis 开启 `map-underscore-to-camel-case`，**不要再写 `resultMap`**。
@@ -172,7 +171,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 具体要求：
 
-- 新增表 / 改表结构时**不要**加 `FOREIGN KEY`；已有库上的旧约束由 `V3__drop_foreign_keys.sql` 摘掉。
+- 新增表 / 改表结构时**不要**加 `FOREIGN KEY`；`V1__init_project_info_manage.sql` 里从一开始就没建外键。
 - **删除顺序由 Service 负责**，参考现有实现：
   - `UserServiceImpl#deleteUser` → 先 `userRoleMapper.deleteUserRoleByUserId(id)`，再 `userMapper.deleteUserById(id)`。
   - `RoleServiceImpl#deleteRole` → 先 `userRoleMapper.deleteUserRoleByRoleId(id)` + `rolePermissionMapper.deleteRolePermissionByRoleId(id)`，再 `roleMapper.deleteRoleById(id)`。

@@ -55,7 +55,7 @@ class BCryptPasswordEncoderTests {
     }
 
     /**
-     * 验证 {@code V1__baseline_project_info_manage.sql} 中种子账户的 BCrypt 哈希与明文密码匹配.
+     * 验证 {@code V1__init_project_info_manage.sql} 中种子账户的 BCrypt 哈希与明文密码匹配.
      * <p>
      * 本方法不读取任何 SQL 文件，也不连接数据库；它只校验仓库中已固定的 BCrypt
      * 哈希字符串与明文密码之间的契约，防止种子数据被误改。
@@ -65,12 +65,12 @@ class BCryptPasswordEncoderTests {
     void testMatchesSeedHashFromV1Migration() {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-        // 取自 src/main/resources/db/migration/V1__baseline_project_info_manage.sql（admin/admin123）
+        // 取自 src/main/resources/db/migration/V1__init_project_info_manage.sql（admin/admin123）
         String adminSeedHash = "$2a$10$FtMOPk5bSAG2p6udDM1wy.hf0GCFGeX5hbRg74Bh6Z1fVQxfByCOi";
         assertTrue(passwordEncoder.matches("admin123", adminSeedHash),
                 "admin seed hash in V1 migration should match raw password 'admin123'");
 
-        // 取自 src/main/resources/db/migration/V1__baseline_project_info_manage.sql（testuser/test123456）
+        // 取自 src/main/resources/db/migration/V1__init_project_info_manage.sql（testuser/test123456）
         String testUserSeedHash = "$2a$10$aV7SsUHGnfAyHN5dIzpCW.ljxQbHSHQKwBxV3UPeZ2LR0pweelWbK";
         assertTrue(passwordEncoder.matches("test123456", testUserSeedHash),
                 "testuser seed hash in V1 migration should match raw password 'test123456'");

@@ -2,12 +2,18 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  */
 
--- project_info_manage V1 基线。
--- 已有非空数据库通过 baseline-version=1 跳过本文件；新空库执行本文件完成初始化。
+-- project_info_manage 初始化：建表 + 种子数据。
 --
--- 表结构约定：**不建物理外键约束**，关联关系一律由应用层（MyBatis JOIN）维护，
--- 即"逻辑外键"。引用完整性由 Service 层保证（删除用户/角色时先清关联表）。
--- 关联列上仍显式建索引（KEY user_id / role_id / permission_id），供逻辑 JOIN 使用。
+-- 这是唯一的初始迁移。空库执行本文件即可得到完整 schema；
+-- 已有非空数据库通过 baseline-version=1 跳过本文件（见 application.yml）。
+--
+-- 表结构约定：
+--   1. **不建物理外键约束**，关联关系一律由应用层（MyBatis JOIN）维护，即"逻辑外键"。
+--      引用完整性与级联清理由 Service 层保证（删除用户/角色时先清关联表）。
+--      代价是没有外键就不会再由 InnoDB 自动建索引 —— 所以关联列必须显式声明。
+--   2. 字符集统一 utf8mb4 / utf8mb4_unicode_ci（不用 MySQL 8 独有的 0900_ai_ci，
+--      保持对 MySQL 5.7 的兼容）。
+--   3. update_time 由 MySQL 自动维护（ON UPDATE CURRENT_TIMESTAMP）。
 --
 -- 注意：本文件一旦在某个库上执行过就不可再修改（Flyway 校验和会不匹配导致启动失败）。
 --       改表结构请新增递增版本的迁移（V2__xxx.sql、V3__xxx.sql...）。
@@ -21,9 +27,11 @@ CREATE TABLE `t_user` (
     `phone` VARCHAR(20) DEFAULT NULL,
     `status` TINYINT DEFAULT '1' COMMENT '1: active, 0: inactive',
     `create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `username` (`username`)
+    UNIQUE KEY `username` (`username`),
+    KEY `idx_status` (`status`),
+    KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `t_role` (
@@ -33,10 +41,11 @@ CREATE TABLE `t_role` (
     `description` VARCHAR(256) DEFAULT NULL,
     `status` TINYINT DEFAULT '1' COMMENT '1: active, 0: inactive',
     `create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `role_name` (`role_name`),
-    UNIQUE KEY `role_code` (`role_code`)
+    UNIQUE KEY `role_code` (`role_code`),
+    KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `t_permission` (
@@ -58,9 +67,11 @@ CREATE TABLE `t_product` (
     `price` DECIMAL(10,2) DEFAULT NULL,
     `status` TINYINT DEFAULT '1' COMMENT '1: active, 0: inactive',
     `create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `product_code` (`product_code`)
+    UNIQUE KEY `product_code` (`product_code`),
+    KEY `idx_status` (`status`),
+    KEY `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `t_lottery_period` (
@@ -75,13 +86,15 @@ CREATE TABLE `t_lottery_period` (
     `back_1` INT NOT NULL COMMENT '后区一号',
     `back_2` INT NOT NULL COMMENT '后区二号',
     `create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `period` (`period`),
     KEY `idx_draw_date` (`draw_date`),
     KEY `idx_period` (`period`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 关联表：只存 id，不建外键。
+-- user_id / role_id / permission_id 上的索引是逻辑 JOIN 的性能基础，必须显式声明。
 CREATE TABLE `t_user_role` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
@@ -120,6 +133,9 @@ INSERT INTO `t_role` (`id`, `role_name`, `role_code`, `description`) VALUES
     ('550e8400-e29b-41d4-a716-446655440101', 'Administrator', 'ADMIN', 'System administrator with full permissions'),
     ('550e8400-e29b-41d4-a716-446655440102', 'User', 'USER', 'Regular user');
 
+-- ADMIN 拥有全部权限；USER 只给三个只读权限。
+-- 迁移只执行一次，所以这里用 UUID() 生成关联行 id 没问题（早先用
+-- `INSERT IGNORE ... SELECT UUID()` 配合"每次启动都重跑脚本"才是重复的根因）。
 INSERT INTO `t_role_permission` (`id`, `role_id`, `permission_id`)
 SELECT UUID(), '550e8400-e29b-41d4-a716-446655440101', `id`
 FROM `t_permission`;
