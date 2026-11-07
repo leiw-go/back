@@ -1,0 +1,48 @@
+# ============================================================
+# 生产环境编排 —— 只编排后端服务
+#
+#   MySQL 是远程机上的独立实例（docker 网络 deploy-net 上的 mysql 容器），
+#   通过 DB_URL 连接；后端必须加入同一个网络才能用容器名解析。
+#
+#   用法（在部署目录下）：
+#     docker compose -f docker-compose.prod.yml up -d
+#
+#   依赖：同目录下必须有 backend.env（见 backend.env.example）
+#   插值（${...}）来自 shell 环境或同目录的 .env 文件
+# ============================================================
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-leiw-go/back}:${BACKEND_TAG:-latest}
+    container_name: ${BACKEND_CONTAINER_NAME:-backend}
+    restart: unless-stopped
+    ports:
+      # 必须发布到宿主 8888 —— nginx 的 upstream 指向 127.0.0.1:8888
+      - "${BACKEND_PORT:-8888}:8888"
+    # 容器内的运行时环境变量（凭据都放这里）
+    env_file:
+      - ./backend.env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      TZ: Asia/Shanghai
+    networks:
+      - deploy-net
+    # 让容器也能通过 host.docker.internal 访问宿主机（备用路径）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8888/design/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+networks:
+  deploy-net:
+    # 外部网络：MySQL 容器也在上面，不能由本 compose 新建
+    external: true
+    name: ${BACKEND_NETWORK:-deploy-net}

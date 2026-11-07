@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# 生产环境凭据（由 deploy/backend.env.example 复制而来，禁止提交）
+deploy/backend.env
+
 ### STS ###
 .apt_generated
 .classpath

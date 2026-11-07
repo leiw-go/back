@@ -254,15 +254,126 @@ curl -s -H "Authorization: Bearer <token>" http://localhost:8888/design/api/user
 
 ## 部署
 
-### Docker 镜像
+生产部署形态：**Docker 镜像 + docker compose**，编排只含后端服务，MySQL 用远程机上的独立实例。
+
+```
+deploy/
+├── docker-compose.prod.yml    # 生产编排（只编排后端）
+├── backend.env.example        # 环境变量模板（含凭据）
+└── backend.env                # 实际配置（gitignore，勿提交）
+```
+
+### 一键发布到远程机
+
+```bash
+# 首次：准备带凭据的环境变量文件
+cp deploy/backend.env.example deploy/backend.env
+vim deploy/backend.env          # 至少改 DB_PASSWORD 和 JWT_SECRET
+
+# 发布（本地执行，脚本负责 build → 传镜像 → 远端 compose up → 健康检查）
+DEPLOY_HOST=root@1.2.3.4 ./scripts/deploy-prod.sh
+```
+
+脚本做的事：
+
+1. 本地 `docker build`（自动探测可用镜像源）
+2. `docker save | gzip` → `scp` → 远端 `docker load`
+3. 上传 `docker-compose.prod.yml` 与 `backend.env`（远端权限收紧为 600）
+4. 远端 `docker compose up -d`
+5. 轮询 `/design/actuator/health`，通过后打印访问地址
+
+可用环境变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DEPLOY_HOST` | **必填** | ssh 目标 `user@host` |
+| `DEPLOY_DIR` | `/opt/greatbus` | 远端部署目录 |
+| `DEPLOY_PORT` | `22` | ssh 端口 |
+| `DEPLOY_SSH_KEY` | — | ssh 私钥路径 |
+| `BACKEND_IMAGE` | `leiw-go/back` | 镜像名 |
+| `BACKEND_PORT` | `8888` | 容器对外端口 |
+| `DEPLOY_PLATFORM` | `linux/amd64` | 目标架构，见下方说明 |
+| `SKIP_BUILD` | `0` | `1` = 跳过本地构建，复用已有镜像 |
+| `SKIP_ENV` | `0` | `1` = 不上传 env，保留远端现有配置 |
+
+> ⚠️ **镜像架构必须和远程机一致**。脚本默认按 `linux/amd64` 构建（远程机一般是 x86_64）。
+> 如果你在 Apple Silicon Mac 上开发、远程机是 x86_64，**不要改这个默认值** ——
+> 默认值就是对的。若远程机是 arm64，把 `DEPLOY_PLATFORM` 改成 `linux/arm64`。
+>
+> 原因：基础镜像 `eclipse-temurin:17-jre-alpine` 在国内镜像源上**只有 amd64 版本**，
+> 在 arm64 机器上直接构建会报 `no match for platform in manifest`。
+> 脚本会在本地构建后、远端加载后各校验一次架构，不一致直接终止并给出提示。
+
+### 数据库连接
+
+MySQL 是远程机上的独立实例，**不由本项目编排**。compose 已配 `host.docker.internal:host-gateway`，
+所以 `backend.env` 里同机部署可以写：
+
+```
+DB_URL=jdbc:mysql://host.docker.internal:3306/project_info_manage?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf-8
+```
+
+异机部署直接写 MySQL 的内网 IP / 域名即可。
+
+---
+
+## 生产环境现状（43.143.244.13）
+
+| 项 | 值 |
+| --- | --- |
+| 主机 | `ubuntu@43.143.244.13`（Ubuntu 24.04 / x86_64 / Docker 29.5.3） |
+| 部署目录 | `/home/ubuntu/jenkins-deploy/backend/`（compose + `backend.env`，权限 600） |
+| 容器 | `backend`，`deploy-net` 网络，宿主 `8888:8888`，`restart: unless-stopped` |
+| MySQL | 同机 `deploy-net` 上的 `mysql` 容器 → `DB_URL` 用 `mysql:3306` 解析 |
+| 公网入口 | `https://design.yaowen.store/design/...`（nginx → `127.0.0.1:8888`） |
+
+后端必须占用宿主 **8888** 端口 —— nginx 的 upstream 写的是 `127.0.0.1:8888`，
+且应用的 `context-path` 是 `/design`，所以对外路径是 `/design/api/...` 而**不是** `/api/...`。
+
+发布命令：
+
+```bash
+DEPLOY_HOST=ubuntu@43.143.244.13 \
+DEPLOY_DIR=/home/ubuntu/jenkins-deploy/backend \
+DEPLOY_SSH_KEY=~/.ssh/id_ed25519 \
+BACKEND_NETWORK=deploy-net \
+./scripts/deploy-prod.sh
+```
+
+`backend.env` 直接在远程机上生成（凭据不落到本地仓库或开发机）：
+
+```bash
+# 远程机上执行
+DB_PASSWORD=$(cat /home/ubuntu/jenkins-deploy/.env | grep MYSQL_ROOT_PASSWORD | cut -d= -f2-)
+JWT_SECRET=$(openssl rand -base64 32)
+# 写入 /home/ubuntu/jenkins-deploy/backend/backend.env，权限 600
+```
+
+> ⚠️ **`backend.env` 里有真实凭据，绝不能提交**（已在 `.gitignore`）。
+> 脚本会拒绝上传仍含 `CHANGE_ME` 占位符的 env —— 那会让应用启动即崩
+> （`Illegal base64 character 5f`，因为 `JwtUtil` 直接 `Base64.decode` 密钥）。
+
+### 数据库迁移记录
+
+2026-11-07 首次接管生产库时，旧库（`spring.sql.init.mode: always` 建的，带 4 个外键）已改名备份：
+
+| 备份 | 内容 |
+| --- | --- |
+| 库 `project_info_manage_bak_20261107_235151` | 7 张表 + 触发器 `trg_t_lottery_period_uuid`，含 2890 行历史开奖数据 |
+| 文件 `/home/ubuntu/jenkins-deploy/backups/project_info_manage_20261107_234841.sql` | 上述库的 mysqldump |
+
+新库 `project_info_manage` 由 `V1__init_project_info_manage.sql` 从零建成（Flyway 真实执行，非 baseline）。
+
+### 本地手动构建镜像
 
 ```bash
 docker build -f Dockerfile -t leiw-go/back:dev .
 ```
 
-### Jenkins
+### Jenkins（同机部署）
 
-`Jenkinsfile` 走两个 stage：构建镜像 → 部署容器。参数：
+`Jenkinsfile` 走两个 stage：构建镜像 → 部署容器。**注意它部署到的是 Jenkins agent 自己那台机器**，
+不是远程机 —— 远程发布请用上面的 `deploy-prod.sh`。参数：
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -275,14 +386,12 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 | `JWT_SECRET` / `JWT_EXPIRATION` | 见上表 | JWT 配置 |
 | `FLYWAY_BASELINE_ON_MIGRATE` | `false` | Flyway 首次接管存量库时开启 baseline（prod 存量库首次上线需置 `true`） |
 
-部署脚本也可以单独跑（参数顺序固定）：
+同机部署脚本也可以单独跑（参数顺序固定）：
 
 ```bash
 bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> \
   [db_url] [db_user] [db_pass] [jwt_secret] [jwt_expiration]
 ```
-
-脚本会把 DB / JWT 以及宿主机上的 `FEISHU_WEBHOOK_*` 透传进容器环境变量；未设置的变量不写入，回落到 profile 自身的默认值。
 
 ---
 
@@ -294,10 +403,15 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> \
 ├── settings.xml                         # Maven 镜像（华为云）
 ├── Dockerfile                           # 后端多阶段镜像
 ├── docker-compose.mysql.yml             # 本机 dev 用 MySQL
+├── deploy/
+│   ├── docker-compose.prod.yml          # 生产编排（只编排后端）
+│   ├── backend.env.example              # 生产环境变量模板
+│   └── backend.env                      # 实际配置（gitignore）
 ├── Jenkinsfile                          # Jenkins 流水线
 ├── checkstyle_huawei.xml                # 华为代码规约
 ├── scripts/
-│   ├── deploy-backend.sh                # 启/重启后端容器
+│   ├── deploy-prod.sh                   # 一键发布到远程机（build→传镜像→compose up→健康检查）
+│   ├── deploy-backend.sh                # 启/重启后端容器（同机）
 │   └── pick-docker-mirror.sh            # 探测可用 docker 镜像源
 ├── src/main/java/com/yaowenltd/projectinfomationmanage/
 │   ├── ProjectInformationManageApplication.java

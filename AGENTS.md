@@ -39,11 +39,13 @@
 ├── pom.xml                              # Maven 主 POM
 ├── settings.xml                         # Maven 镜像（华为云，重要！）
 ├── Dockerfile                           # 后端多阶段镜像
-├── docker-compose.mysql.yml             # 本机 dev 用 MySQL（表结构由应用启动时自动初始化）
+├── docker-compose.mysql.yml             # 本机 dev 用 MySQL
+├── deploy/                              # 生产部署（compose + env 模板，env 含凭据不入库）（表结构由应用启动时自动初始化）
 ├── Jenkinsfile                          # Jenkins 流水线入口
 ├── checkstyle_huawei.xml                # 华为代码规约（当前未在构建阶段强制）
 ├── scripts/
-│   ├── deploy-backend.sh                # 启/重启后端容器
+│   ├── deploy-prod.sh                   # 一键发布到远程机（build→传镜像→compose up→健康检查）
+│   ├── deploy-backend.sh                # 启/重启后端容器（同机）
 │   └── pick-docker-mirror.sh            # 探测可用 docker 镜像源
 ├── src/main/java/com/yaowenltd/projectinfomationmanage/
 │   ├── ProjectInformationManageApplication.java   # 主类（@EnableScheduling）
@@ -222,6 +224,18 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 - 改 `Jenkinsfile` / `scripts/*.sh`：保持 `set -eu` + 显式 `trap rm -f`，别让临时文件留在 Jenkins agent。
 - `scripts/deploy-backend.sh` 的位置参数顺序：`<name> <port> <profile> <network> <image> [db_url] [db_user] [db_pass] [jwt_secret] [jwt_expiration]` —— 改签名时要同步改 `Jenkinsfile` 里的调用。
 - 飞书 webhook 的生产配置（原先在 Nacos）现在通过宿主机环境变量 `FEISHU_WEBHOOK_URL` / `FEISHU_WEBHOOK_ENABLED` / `FEISHU_WEBHOOK_TIMEOUT_MS` / `FEISHU_WEBHOOK_SECRET` 透传进容器；未设置则回落到 `application-{profile}.yml` 的默认值。
+
+### 9.4 生产部署（远程机）
+
+- 形态：**Docker 镜像 + docker compose**，编排只含后端；MySQL 是远程机上的独立实例，通过 `DB_URL` 连接。
+- 编排文件 `deploy/docker-compose.prod.yml`；运行时环境变量在 `deploy/backend.env`（**已 gitignore**，由 `deploy/backend.env.example` 复制而来）。**不要**把真实凭据提交到仓库。
+- 发布入口 `scripts/deploy-prod.sh`：本地 build → `docker save|gzip` → scp → 远端 `docker load` → `docker compose up -d` → 轮询 `/design/actuator/health`。
+- ⚠️ **镜像架构必须匹配远程机**：脚本默认 `DEPLOY_PLATFORM=linux/amd64`。基础镜像 `eclipse-temurin:17-jre-alpine` 在国内镜像源上只有 amd64 版本 —— 在 arm64 机器上直接构建会报 `no match for platform in manifest`，跨架构传输也会起不来。脚本在本地构建后与远端加载后各校验一次架构。
+- `Jenkinsfile` 部署的是 **Jenkins agent 自己那台机器**，不是远程机；远程发布走 `deploy-prod.sh`。
+- **生产机 43.143.244.13**：`ubuntu` 账号（免密 sudo + ssh 公钥已配），部署目录 `/home/ubuntu/jenkins-deploy/backend/`，容器名 `backend`，外部网络 `deploy-net`（MySQL 也在上面）。
+- ⚠️ 后端必须占用宿主 **8888** 端口（nginx upstream 写死 `127.0.0.1:8888`），且应用 `context-path=/design` → 对外路径是 `/design/api/...`，**不是** `/api/...`。
+- ⚠️ `backend.env` 含真实凭据，只在远程机上生成（权限 600），**不要**拉到本地或提交仓库；脚本会拒绝上传含 `CHANGE_ME` 占位符的 env。
+- 远程机上还留着旧的 `.shared/Jenkinsfile`（部署到 Jenkins agent 自己的方式）与 `docker-compose.yml`（含 mysql/jenkins），**不要**用它们部署后端 —— 会与 `deploy/docker-compose.prod.yml` 抢容器名和 8888 端口。
 
 ---
 
