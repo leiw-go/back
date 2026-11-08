@@ -4,7 +4,18 @@
 
 package com.yaowenltd.projectinfomationmanage.crm.controller;
 
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmAccessMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmDashboardMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmInquiryMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOpportunityMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmProductMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationItemMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmProductPriceMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencyRateMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerContactMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerTagRelMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.MessageMapper;
 import com.yaowenltd.projectinfomationmanage.crm.service.CurrencyCrossCheckService;
 import com.yaowenltd.projectinfomationmanage.crm.service.CurrencyRateQueryService;
@@ -72,6 +83,39 @@ class CrmContextSmokeTests {
 
     @MockBean
     private CurrencyRateMapper currencyRateMapper;
+
+    @MockBean
+    private CustomerMapper customerMapper;
+
+    @MockBean
+    private CustomerContactMapper customerContactMapper;
+
+    @MockBean
+    private CustomerTagRelMapper customerTagRelMapper;
+
+    @MockBean
+    private CrmAccessMapper crmAccessMapper;
+
+    @MockBean
+    private CrmProductMapper crmProductMapper;
+
+    @MockBean
+    private CrmProductPriceMapper crmProductPriceMapper;
+
+    @MockBean
+    private CrmOpportunityMapper crmOpportunityMapper;
+
+    @MockBean
+    private CrmDashboardMapper crmDashboardMapper;
+
+    @MockBean
+    private CrmInquiryMapper crmInquiryMapper;
+
+    @MockBean
+    private CrmQuotationMapper crmQuotationMapper;
+
+    @MockBean
+    private CrmQuotationItemMapper crmQuotationItemMapper;
 
     @Autowired
     private QuotationPricingService quotationPricingService;

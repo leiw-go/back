@@ -4,6 +4,7 @@
 
 package com.yaowenltd.projectinfomationmanage.config;
 
+import com.yaowenltd.projectinfomationmanage.crm.config.CrmAccessInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -16,13 +17,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AuthInterceptor authInterceptor;
 
+    private final CrmAccessInterceptor crmAccessInterceptor;
+
     /**
-     * 使用指定的 AuthInterceptor 构造 WebMvcConfig.
+     * 使用指定的拦截器构造 WebMvcConfig.
      *
-     * @param authInterceptor 认证拦截器
+     * @param authInterceptor      认证拦截器
+     * @param crmAccessInterceptor CRM 权限点拦截器
      */
-    public WebMvcConfig(AuthInterceptor authInterceptor) {
+    public WebMvcConfig(AuthInterceptor authInterceptor, CrmAccessInterceptor crmAccessInterceptor) {
         this.authInterceptor = authInterceptor;
+        this.crmAccessInterceptor = crmAccessInterceptor;
     }
 
     /**
@@ -38,5 +43,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**");
+        // CRM 路径额外校验 crm:access 权限点（必须排在 AuthInterceptor 之后，
+        // 这样 request 里已经有 username 属性）
+        registry.addInterceptor(crmAccessInterceptor)
+                .addPathPatterns("/api/crm/**");
     }
 }

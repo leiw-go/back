@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmInquiryMapper">
+
+    <sql id="BaseColumns">
+        id, customer_id, contact_id, inquiry_no, source, subject, target_price, currency_code,
+        quantity, unit, expect_delivery_date, inquiry_status, content, owner_id, first_reply_at,
+        create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmInquiryEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_inquiry
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmInquiryEntity">
+        INSERT INTO t_inquiry
+        (id, customer_id, contact_id, inquiry_no, source, subject, target_price, currency_code,
+         quantity, unit, expect_delivery_date, inquiry_status, content, owner_id, first_reply_at, deleted)
+        VALUES
+        (#{id}, #{customerId}, #{contactId}, #{inquiryNo}, #{source}, #{subject}, #{targetPrice},
+         #{currencyCode}, #{quantity}, #{unit}, #{expectDeliveryDate}, #{inquiryStatus}, #{content},
+         #{ownerId}, #{firstReplyAt}, #{deleted})
+    </insert>
+
+    <update id="update" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmInquiryEntity">
+        UPDATE t_inquiry
+        SET customer_id           = #{customerId},
+            contact_id            = #{contactId},
+            source                = #{source},
+            subject               = #{subject},
+            target_price          = #{targetPrice},
+            currency_code         = #{currencyCode},
+            quantity              = #{quantity},
+            unit                  = #{unit},
+            expect_delivery_date  = #{expectDeliveryDate},
+            inquiry_status        = #{inquiryStatus},
+            content               = #{content},
+            owner_id              = #{ownerId}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE t_inquiry
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="updateStatus">
+        UPDATE t_inquiry
+        SET inquiry_status = #{status}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="updateFirstReplyAt">
+        UPDATE t_inquiry
+        SET first_reply_at = #{firstReplyAt}
+        WHERE id = #{id}
+          AND deleted = 0
+          AND first_reply_at IS NULL
+    </update>
+
+    <select id="selectPage" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.inquiry.CrmInquiryQueryRequest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmInquiryEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_inquiry
+        <include refid="QueryWhere"/>
+        ORDER BY create_time DESC
+    </select>
+
+    <sql id="QueryWhere">
+        <where>
+            deleted = 0
+            <if test="inquiryStatus != null and inquiryStatus != ''">
+                AND inquiry_status = #{inquiryStatus}
+            </if>
+            <if test="customerId != null and customerId != ''">
+                AND customer_id = #{customerId}
+            </if>
+            <if test="ownerId != null and ownerId != ''">
+                AND owner_id = #{ownerId}
+            </if>
+            <if test="source != null and source != ''">
+                AND source = #{source}
+            </if>
+            <if test="pendingQuote != null and pendingQuote">
+                AND first_reply_at IS NULL
+                AND create_time &lt; DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                AND NOT EXISTS (SELECT 1 FROM t_quotation q WHERE q.inquiry_id = t_inquiry.id AND q.deleted = 0)
+            </if>
+        </where>
+    </sql>
+
+</mapper>

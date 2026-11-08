@@ -65,6 +65,31 @@
             <artifactId>flyway-mysql</artifactId>
         </dependency>
 
+        <!-- Excel 导出：EasyExcel（阿里开源，Apache POI 官方推荐）
+             4.0.3 传递 POI 5.2.5（Java 17 兼容）；版本不写进 Spring Boot BOM。 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>4.0.3</version>
+        </dependency>
+
+        <!-- 分页：PageHelper + PageInfo（MyBatis 生态标准方案）
+             版本不写进 Spring Boot BOM（PageHelper 不在 BOM 里）。
+             必须排除 starter 传递的 mybatis-spring-boot-starter 2.3.2（Spring Boot 2.x 时代），
+             本工程用 Spring Boot 3.2.4 + mybatis-spring-boot-starter 3.0.3（BOM 管理）。
+             PageHelperAutoConfiguration 只引用 MyBatis 核心类，与 3.0.3 兼容。 -->
+        <dependency>
+            <groupId>com.github.pagehelper</groupId>
+            <artifactId>pagehelper-spring-boot-starter</artifactId>
+            <version>2.1.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.mybatis.spring.boot</groupId>
+                    <artifactId>mybatis-spring-boot-starter</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- Spring Security Crypto (for BCrypt) --><dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-crypto</artifactId></dependency><!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

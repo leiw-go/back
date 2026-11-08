@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmProductPriceMapper">
+
+    <sql id="BaseColumns">
+        id, product_id, currency_code, price, min_quantity, valid_from, valid_to, create_time,
+        update_time, deleted
+    </sql>
+
+    <select id="selectByProductId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmProductPriceEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_crm_product_price
+        WHERE product_id = #{productId}
+          AND deleted = 0
+        ORDER BY currency_code ASC, min_quantity ASC
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmProductPriceEntity">
+        INSERT INTO t_crm_product_price
+        (id, product_id, currency_code, price, min_quantity, valid_from, valid_to, deleted)
+        VALUES
+        (#{id}, #{productId}, #{currencyCode}, #{price}, #{minQuantity}, #{validFrom}, #{validTo},
+         #{deleted})
+    </insert>
+
+    <delete id="deleteByProductId">
+        DELETE FROM t_crm_product_price
+        WHERE product_id = #{productId}
+    </delete>
+
+</mapper>

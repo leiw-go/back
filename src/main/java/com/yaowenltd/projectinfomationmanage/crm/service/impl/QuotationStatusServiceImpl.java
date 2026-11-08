@@ -5,40 +5,66 @@
 package com.yaowenltd.projectinfomationmanage.crm.service.impl;
 
 import com.yaowenltd.projectinfomationmanage.crm.model.enums.QuotationStatus;
-import java.time.LocalDate;
 import com.yaowenltd.projectinfomationmanage.crm.service.QuotationStatusService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * 报价单状态机实现.
+ * <p>按需求文档 §3.5：DRAFT → SENT → CONFIRMED / REJECTED；只有 DRAFT 可改；
+ * 超过有效期的 DRAFT / SENT 视为 EXPIRED。
+ * </p>
  *
  * @since 2026-11-08
  */
 @Service
 public class QuotationStatusServiceImpl implements QuotationStatusService {
 
+    private static final Map<QuotationStatus, Set<QuotationStatus>> TRANSITIONS = buildTransitions();
 
-    /**
-     * 判断两个报价单状态之间是否允许流转.
-     */
+    private static Map<QuotationStatus, Set<QuotationStatus>> buildTransitions() {
+        Map<QuotationStatus, Set<QuotationStatus>> map = new EnumMap<>(QuotationStatus.class);
+        map.put(QuotationStatus.DRAFT, EnumSet.of(QuotationStatus.SENT));
+        map.put(QuotationStatus.SENT, EnumSet.of(QuotationStatus.CONFIRMED, QuotationStatus.REJECTED));
+        map.put(QuotationStatus.CONFIRMED, Collections.emptySet());
+        map.put(QuotationStatus.REJECTED, Collections.emptySet());
+        map.put(QuotationStatus.EXPIRED, Collections.emptySet());
+        return Collections.unmodifiableMap(map);
+    }
+
     @Override
     public boolean canTransit(QuotationStatus from, QuotationStatus to) {
-        throw new UnsupportedOperationException("TDD: 待实现");
+        if (from == null || to == null) {
+            return false;
+        }
+        return TRANSITIONS.getOrDefault(from, Collections.emptySet()).contains(to);
     }
 
-    /**
-     * 校验报价单状态流转是否合法，非法时抛出业务异常.
-     */
     @Override
     public void assertCanTransit(QuotationStatus from, QuotationStatus to, String rejectReason) {
-        throw new UnsupportedOperationException("TDD: 待实现");
+        if (!canTransit(from, to)) {
+            throw new IllegalArgumentException(
+                    "illegal quotation status transition: " + from + " -> " + to);
+        }
+        if (to == QuotationStatus.REJECTED && (rejectReason == null || rejectReason.trim().isEmpty())) {
+            throw new IllegalArgumentException("rejectReason is required when quotation is rejected");
+        }
     }
 
-    /**
-     * 判断报价单是否已过有效期.
-     */
     @Override
     public boolean isExpired(QuotationStatus status, LocalDate validUntil, LocalDate today) {
-        throw new UnsupportedOperationException("TDD: 待实现");
+        if (status == null || validUntil == null || today == null) {
+            return false;
+        }
+        if (status != QuotationStatus.DRAFT && status != QuotationStatus.SENT) {
+            return false;
+        }
+        return today.isAfter(validUntil);
     }
 }

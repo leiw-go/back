@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerMapper">
+
+    <sql id="BaseColumns">
+        id, company_name, company_name_norm, short_name, country_code, province, city, address,
+        website, industry, source, level, customer_status, owner_id, first_deal_at, last_contact_at,
+        remark, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByCompanyNorm"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer
+        WHERE country_code = #{countryCode}
+          AND company_name_norm = #{companyNameNorm}
+          AND deleted = 0
+        <if test="excludeId != null and excludeId != ''">
+            AND id != #{excludeId}
+        </if>
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        INSERT INTO t_customer
+        (id, company_name, company_name_norm, short_name, country_code, province, city, address,
+         website, industry, source, level, customer_status, owner_id, first_deal_at, last_contact_at,
+         remark, deleted)
+        VALUES
+        (#{id}, #{companyName}, #{companyNameNorm}, #{shortName}, #{countryCode}, #{province}, #{city},
+         #{address}, #{website}, #{industry}, #{source}, #{level}, #{customerStatus}, #{ownerId},
+         #{firstDealAt}, #{lastContactAt}, #{remark}, #{deleted})
+    </insert>
+
+    <update id="update" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        UPDATE t_customer
+        SET company_name    = #{companyName},
+            company_name_norm = #{companyNameNorm},
+            short_name      = #{shortName},
+            country_code    = #{countryCode},
+            province        = #{province},
+            city            = #{city},
+            address         = #{address},
+            website         = #{website},
+            industry        = #{industry},
+            source          = #{source},
+            level           = #{level},
+            customer_status = #{customerStatus},
+            owner_id        = #{ownerId},
+            remark          = #{remark}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE t_customer
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="selectPage" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.customer.CustomerQueryRequest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer
+        <include refid="QueryWhere"/>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectForExport" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.customer.CustomerQueryRequest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer
+        <include refid="QueryWhere"/>
+        ORDER BY create_time DESC
+        LIMIT 10000
+    </select>
+
+    <sql id="QueryWhere">
+        <where>
+            deleted = 0
+            <if test="companyName != null and companyName != ''">
+                AND company_name LIKE CONCAT('%', #{companyName}, '%')
+            </if>
+            <if test="countryCode != null and countryCode != ''">
+                AND country_code = #{countryCode}
+            </if>
+            <if test="level != null and level != ''">
+                AND level = #{level}
+            </if>
+            <if test="source != null and source != ''">
+                AND source = #{source}
+            </if>
+            <if test="ownerId != null and ownerId != ''">
+                AND owner_id = #{ownerId}
+            </if>
+        </where>
+    </sql>
+
+</mapper>

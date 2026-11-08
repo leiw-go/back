@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerContactMapper">
+
+    <sql id="BaseColumns">
+        id, customer_id, name, position, email, phone, whatsapp, language, timezone,
+        is_primary, remark, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerContactEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer_contact
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByEmail"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerContactEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer_contact
+        WHERE customer_id = #{customerId}
+          AND email = #{email}
+          AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectByPhone"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerContactEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer_contact
+        WHERE customer_id = #{customerId}
+          AND phone = #{phone}
+          AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectByCustomerId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerContactEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer_contact
+        WHERE customer_id = #{customerId}
+          AND deleted = 0
+        ORDER BY is_primary DESC, create_time ASC
+    </select>
+
+    <select id="countByCustomerId" resultType="long">
+        SELECT COUNT(1)
+        FROM t_customer_contact
+        WHERE customer_id = #{customerId}
+          AND deleted = 0
+    </select>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerContactEntity">
+        INSERT INTO t_customer_contact
+        (id, customer_id, name, position, email, phone, whatsapp, language, timezone,
+         is_primary, remark, deleted)
+        VALUES
+        (#{id}, #{customerId}, #{name}, #{position}, #{email}, #{phone}, #{whatsapp}, #{language},
+         #{timezone}, #{isPrimary}, #{remark}, #{deleted})
+    </insert>
+
+    <update id="update"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerContactEntity">
+        UPDATE t_customer_contact
+        SET name      = #{name},
+            position  = #{position},
+            email     = #{email},
+            phone     = #{phone},
+            whatsapp  = #{whatsapp},
+            language  = #{language},
+            timezone  = #{timezone},
+            is_primary = #{isPrimary},
+            remark    = #{remark}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE t_customer_contact
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <delete id="deleteByCustomerId">
+        DELETE FROM t_customer_contact
+        WHERE customer_id = #{customerId}
+    </delete>
+
+</mapper>

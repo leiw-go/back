@@ -5,7 +5,10 @@
 package com.yaowenltd.projectinfomationmanage.common;
 
 /**
- * E.164 电话号码格式校验器.<p>按需求文档 §8.2：号码必须以加号开头，后接国家码与号码，不含空格、横线与括号。
+ * E.164 电话号码格式校验器.
+ * <p>按需求文档 §8.2：号码必须以加号开头，后接国家码与号码，
+ * <b>不含空格 / 横线 / 括号</b>；去掉加号后为 2~15 位数字；国家码不能以 0 开头。
+ * </p>
  *
  * @since 2026-11-08
  */
@@ -21,6 +24,11 @@ public final class E164PhoneValidator {
      */
     public static final int MAX_DIGITS = 15;
 
+    /**
+     * 校验失败时的错误文案.
+     */
+    private static final String ERROR_MESSAGE = "phone must be E.164 format, e.g. +14155552671";
+
     private E164PhoneValidator() {
     }
 
@@ -31,7 +39,7 @@ public final class E164PhoneValidator {
      * @return 合法返回 true
      */
     public static boolean isValid(String phone) {
-        throw new UnsupportedOperationException("TDD: 待实现");
+        return phone != null && phone.matches(PATTERN);
     }
 
     /**
@@ -40,7 +48,8 @@ public final class E164PhoneValidator {
      * @param phone 待校验的号码
      */
     public static void validate(String phone) {
-        throw new UnsupportedOperationException("TDD: 待实现");
+        if (!isValid(phone)) {
+            throw new IllegalArgumentException(ERROR_MESSAGE);
+        }
     }
-
 }

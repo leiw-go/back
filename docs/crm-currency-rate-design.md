@@ -176,7 +176,7 @@ v2 覆盖 108 家央行、219 个法定币种（`/v2/rates` 实测可取 200 个
 | --- | --- | --- |
 | 主源各币种日期不一致 | 用 11-06 的数据和 11-08 的快照比，天然带 2 天时差误差 | 入库时**按该币种自己的 `rate_date` 存**，不统一成同步日 |
 | 比对源只有"最新" | 无法取历史日快照做同日比对 | 比对时记录 `date_gap_days`；差值 > `max-date-gap-days` 的币种，本次**跳过比对**、只做单源合理性校验 |
-| 日期差引入的额外偏差 | 正常币种也可能被误判超标 | 日期差 ≤ 阈值时按正常比对；> 阈值时**放宽一档**（核心 1% → 2%）再判 |
+| 日期差引入的额外偏差 | 正常币种也可能被误判超标 | 日期差 ≤ 阈值时按正常比对；> 阈值时**判 SKIP**（不比对、不入库，走单源路径 + 合理性校验） |
 
 ---
 
@@ -244,7 +244,7 @@ GET https://open.er-api.com/v6/latest/USD
 | --- | --- | --- | --- | --- |
 | **CORE** 核心币种 | USD / EUR / CNY / JPY / GBP / HKD / KRW / SGD / TWD / AUD / CAD / CHF / AED / SAR / THB / MYR / INR / RUB / BRL / MXN / VND / ZAR / TRY / PLN / NOK / SEK / DKK / EGP / PHP / IDR | **1.0%** | 拒绝入库 | 实测最大 1.08%（NOK），1% 刚好卡住 |
 | **NORMAL** 一般币种 | 其余法定币种 | **3.0%** | 拒绝入库 | 全部币种 p95 = 2.43% |
-| 日期差豁免 | `date_gap_days > max-date-gap-days` | 阈值放宽一档（1% → 2%） | 同上 | 避免时差误判 |
+| 日期差豁免 | `date_gap_days > max-date-gap-days` | **判 `SKIP`，不比对、不入库** | 走单源路径 + 合理性校验 | 避免时差误判（比"放宽阈值"更安全：放宽后仍可能把陈旧价当现价入库） |
 
 - **CORE 币种清单可配置**（`crm.currency.cross-check.core-currencies`），按业务实际常用币调整。
 - 偏差**只对"两个源都有"的币种**计算；比对源缺的币种（SYP / ZWL 等）直接判 `SKIP`，
@@ -525,7 +525,7 @@ CREATE TABLE `t_currency_rate_check` (...) ;
 | `crm.currency.cross-check.core-currencies` | 见 §4.1 的 CORE 清单 | 核心币种（**唯一真相源**；`t_currency.currency_level` 由同步任务按此配置回写，不在迁移里硬编码） |
 | `crm.currency.cross-check.threshold-core` | `1.0` | 核心币种偏差阈值（%） |
 | `crm.currency.cross-check.threshold-normal` | `3.0` | 一般币种偏差阈值（%） |
-| `crm.currency.cross-check.max-date-gap-days` | `3` | 超过则跳过比对 / 阈值放宽一档 |
+| `crm.currency.cross-check.max-date-gap-days` | `3` | 超过则判 SKIP（跳过比对，走单源路径 + 合理性校验） |
 | `crm.currency.cross-check.suspect-days` | `3` | 连续超标几天判定 SUSPECT |
 | `crm.currency.cross-check.recover-days` | `5` | 连续达标几天解除 SUSPECT |
 | `crm.currency.plausibility.min-rate` | `0.0001` | 汇率下界 |

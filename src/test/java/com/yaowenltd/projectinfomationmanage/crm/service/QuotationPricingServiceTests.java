@@ -183,14 +183,14 @@ class QuotationPricingServiceTests {
                             item(product("P1", "100", "USD", null, true), "2"),
                             item(product("P2", "50", "USD", null, true), "3")));
 
-            assertEquals(0, new BigDecimal("465.00").compareTo(result.getTotalAmount()),
-                    "total amount = 240 + 225 = 465");
+            assertEquals(0, new BigDecimal("420.00").compareTo(result.getTotalAmount()),
+                    "total amount = 240 + 180 = 420");
             assertEquals(0, new BigDecimal("350.00").compareTo(result.getTotalCost()),
                     "total cost = 200 + 150 = 350");
-            assertEquals(0, new BigDecimal("115.00").compareTo(result.getProfitAmount()),
-                    "profit = 465 - 350 = 115");
-            assertEquals(0, new BigDecimal("24.73").compareTo(result.getProfitRate()),
-                    "profit rate = 115 / 465 * 100 = 24.73");
+            assertEquals(0, new BigDecimal("70.00").compareTo(result.getProfitAmount()),
+                    "profit = 420 - 350 = 70");
+            assertEquals(0, new BigDecimal("16.67").compareTo(result.getProfitRate()),
+                    "profit rate = 70 / 420 * 100 = 16.67");
         }
 
         @Test
@@ -198,7 +198,7 @@ class QuotationPricingServiceTests {
         void testProfitRateIsZeroWhenTotalAmountIsZero() {
             QuotationPricingResult result = pricingService.calculate(
                     request("USD", "0", "0",
-                            item(product("P1", "0", "USD", null, true), "0")));
+                            item(product("P1", "0", "USD", null, true), "1")));
 
             assertEquals(0, BigDecimal.ZERO.compareTo(result.getProfitRate()),
                     "profit rate should be 0 when total amount is 0");

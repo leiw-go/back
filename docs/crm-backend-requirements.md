@@ -75,9 +75,9 @@
 | 议题 | 决定 |
 | --- | --- |
 | 加价率口径 | **成本加成法**：`单价 = 成本价 × (1 + 加价率) × (1 - 折扣率)` |
-| 成本价币种 | `t_product.cost_currency` 显式声明；**报价时要求成本币种 == 报价单币种**，不等则拒绝 |
+| 成本价币种 | `t_crm_product.cost_currency` 显式声明；**报价时要求成本币种 == 报价单币种**，不等则拒绝 |
 | MOQ | 报价明细行数量必须 ≥ 产品 `moq`，否则 400 |
-| 阶梯价（`t_product_price.min_quantity`） | 仅作**参考销售价**，**不参与**自动算价 |
+| 阶梯价（`t_crm_product_price.min_quantity`） | 仅作**参考销售价**，**不参与**自动算价 |
 | 询盘目标价 `target_price` | 只展示给业务员参考，**不参与**定价 |
 | 客户去重 | **强唯一** `uk_company_norm(country_code, company_name_norm, deleted)` |
 | E.164 号码唯一性 | **同一客户内唯一**（跨客户允许重复 —— 同一采购代理可能对接多家买家） |
@@ -178,7 +178,10 @@ INITIAL_CONTACT 初步接触 → QUALIFIED 需求确认 → QUOTED 已报价
 - **状态机**：`DRAFT` → `SENT` → `CONFIRMED` / `REJECTED`；`DRAFT`/`SENT` 过期后视为 `EXPIRED`（查询时按 `valid_until` 判定，不依赖定时任务）。
   - 只有 `DRAFT` 可改；`SENT` 及之后只读。
   - 转 `REJECTED` 必须填 `reject_reason`。
-- **版本**：同一询盘下 `version_no` 递增，历史版本保留不覆盖。唯一键 `(inquiry_id, currency_code, version_no, deleted)` —— 含币种是为了允许同一询盘同时报 USD 与 EUR。
+- **版本**：同一询盘 + **同一币种**下 `version_no` 递增，历史版本保留不覆盖。唯一键 `(inquiry_id, currency_code, version_no, deleted)`
+  —— 含币种是为了允许同一询盘同时报 USD 与 EUR。
+  **注意**：币种不同虽然允许并存，但**明细行的成本币种必须等于报价单币种**（§3.5.1），
+  所以一个成本价为 USD 的产品只能在 USD 报价单里出现；换币种报价需要产品本身有对应币种的成本价。
 - **一单一币种**：币种只在单头，明细行不存币种；换币种要新建报价单。
 - **本位币快照**：`total_amount_base` 在**创建时**按当日汇率快照，之后汇率变动不回溯。
 
@@ -199,10 +202,10 @@ INITIAL_CONTACT 初步接触 → QUALIFIED 需求确认 → QUOTED 已报价
 | --- | --- |
 | 加价率 | 报价单级默认 `markup_rate`，明细可覆盖；0~1000 |
 | 折扣率 | 报价单级默认 `discount_rate`，明细可覆盖；0~100 |
-| 成本单价 | 建明细时从 `t_product.cost_price` **快照**到明细行，产品改价不影响历史报价 |
-| 币种校验 | 建明细时要求 `t_product.cost_currency == 报价单.currency_code`，不等直接 400 |
-| 成本价缺失 | `t_product.cost_price` 为空 → 该产品不能参与报价，建明细时拦截 |
-| MOQ | 明细数量必须 ≥ `t_product.moq`，否则 400 |
+| 成本单价 | 建明细时从 `t_crm_product.cost_price` **快照**到明细行，产品改价不影响历史报价 |
+| 币种校验 | 建明细时要求 `t_crm_product.cost_currency == 报价单.currency_code`，不等直接 400 |
+| 成本价缺失 | `t_crm_product.cost_price` 为空 → 该产品不能参与报价，建明细时拦截 |
+| MOQ | 明细数量必须 ≥ `t_crm_product.moq`，否则 400 |
 | 手工改价 | 允许覆盖 `unit_price`，但记 `manual_price = 1`，且不再随加价率/折扣重算 |
 | 精度 | 单价 `DECIMAL(18,6)`，金额 `DECIMAL(18,2)`，比例 `DECIMAL(8,2)`；舍入规则见 §5.5 |
 | **服务端重算** | 提交时服务端**重新计算**每行 `unit_price` / `amount` 与单头汇总，**不信任前端传来的值**（`manual_price=1` 的行除外） |
@@ -213,7 +216,7 @@ INITIAL_CONTACT 初步接触 → QUALIFIED 需求确认 → QUOTED 已报价
 - 产品：编码、名称、分类（字典 `product_category`）、规格、单位、重量(kg)、体积(CBM)、**成本价 + 成本币种**、默认销售价、默认币种、MOQ、HS 编码、产地、状态。
 - **成本价是自动算价的输入**，必须维护；`cost_price` 为空的产品不能参与报价。
 - 重量 / 体积是外贸特有字段，用于估算运费与装柜量。
-- `t_product_price` 按产品 + 币种维护**参考销售价**（含阶梯起点），用于目录展示与询盘参考价 —— **不是报价取价来源**。
+- `t_crm_product_price` 按产品 + 币种维护**参考销售价**（含阶梯起点），用于目录展示与询盘参考价 —— **不是报价取价来源**。
 - 停售产品不删除（`product_status = 0`），历史订单仍可正常展示。
 
 ### 3.7 订单（Order）
@@ -257,6 +260,11 @@ CONFIRMED 已确认 → IN_PRODUCTION 生产中 → SHIPPED 已发货 → DELIVE
 - 本期**只落库记录**，SMTP 发送可先同步调用或异步任务，接口一致。
 
 ### 3.10 经营看板（Dashboard）
+
+> **M2 版口径**（订单域未落地前的已知取舍）：
+> - 成交额、逾期应收、成交产品排行**恒为 0 / 空** —— M4 接入订单域后才有数；
+> - 趋势的赢单率按**同期群口径**统计：某期间新增的商机里，当前阶段为 `WON` 的占比；
+> - 漏斗的阶段转化率 = 本阶段商机数 ÷ 上一阶段商机数（按当前 `stage` 快照，无流转历史）。
 
 | 看板 | 指标 |
 | --- | --- |
@@ -469,7 +477,7 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | PUT | `/opportunities/{id}` | 更新（含推进阶段） |
 | DELETE | `/opportunities/{id}` | 逻辑删除 |
 | POST | `/opportunities/{id}/stage` | 推进阶段（置 `LOST` 必须填 `lost_reason`） |
-| POST | `/opportunities/{id}/convert-to-order` | 赢单转订单（自动置 `WON`） |
+| POST | `/opportunities/{id}/convert-to-order` | 赢单转订单（自动置 `WON`）—— **M4 交付**（依赖订单域，订单表未建前不提供） |
 | GET | `/opportunities/pipeline` | 漏斗统计 |
 
 ### 4.5 询盘 `/api/crm/inquiries`
@@ -485,6 +493,9 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 ### 4.6 报价 `/api/crm/quotations`
 
 > 请求体**不接受** `unit_price` / `amount`（服务端算），除非该行 `manualPrice = true`。
+>
+> **报价单不提供删除端点** —— 商务凭据只改状态（`REJECTED` / `EXPIRED`），不做物理删除或软删除。
+> **重算 / 更新仅限 `DRAFT`** —— 已发出的报价单价格不可改，走"作废后重报新版本"。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -497,7 +508,7 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | POST | `/quotations/{id}/submit` | 提交发送（`DRAFT` → `SENT`） |
 | POST | `/quotations/{id}/confirm` | 客户确认（`SENT` → `CONFIRMED`） |
 | POST | `/quotations/{id}/reject` | 客户拒绝（`SENT` → `REJECTED`，必须填原因） |
-| POST | `/quotations/{id}/convert-to-order` | 报价转订单（快照单价金额） |
+| POST | `/quotations/{id}/convert-to-order` | 报价转订单（快照单价金额）—— **M4 交付**（依赖订单域） |
 
 ### 4.7 产品 `/api/crm/products`
 
@@ -548,6 +559,9 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | GET | `/email/campaigns/{id}/logs` | 发送明细 |
 
 ### 4.11 看板 `/api/crm/dashboard`
+
+> **M2 交付范围**：前 4 个端点（summary / pipeline / trend / customer-source）。
+> `receivable-aging` 与 `top-products` 依赖订单域，**M4 交付**。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -617,8 +631,8 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | 客户 | `t_customer_tag` | 客户标签 |
 | 客户 | `t_customer_tag_rel` | 客户-标签关联（物理删除） |
 | 商机 | `t_opportunity` | 销售商机 |
-| 产品 | `t_product` | 产品目录 |
-| 产品 | `t_product_price` | 多币种参考价 |
+| 产品 | `t_crm_product` | 产品目录（V1 已有同名 `t_product` 彩票产品表，故加 `crm_` 前缀） |
+| 产品 | `t_crm_product_price` | 多币种参考价 |
 | 询盘报价 | `t_inquiry` | 询盘 / RFQ |
 | 询盘报价 | `t_quotation` | 报价单头 |
 | 询盘报价 | `t_quotation_item` | 报价明细 |
@@ -719,7 +733,13 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 
 索引：`idx_customer(customer_id)`、`idx_owner_stage(owner_id, stage)`、`idx_stage(stage)`、`idx_expect_close(expect_close_date)`
 
-#### 5.3.5 `t_product` 产品
+#### 5.3.5 `t_crm_product` 产品
+
+> **表名说明**：V1 迁移已建 `t_product`（彩票期号的产品表，字段是 `price` / `status` / `description`），
+> 与本需求的 CRM 产品表语义完全不同。为了不动存量表、不引入两表同义的歧义，
+> CRM 产品表统一用 `crm_` 前缀：`t_crm_product` / `t_crm_product_price`。
+> 代码侧对应 `CrmProductEntity` / `CrmProductMapper` / `CrmProductService`，
+> 同样避开存量 `Product` / `ProductMapper` / `ProductService` 的 bean 名冲突。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -742,7 +762,7 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 
 索引：`uk_product_code(product_code, deleted)` 唯一、`idx_category(category)`、`idx_status(product_status)`
 
-#### 5.3.6 `t_product_price` 多币种参考价
+#### 5.3.6 `t_crm_product_price` 多币种参考价
 
 | 字段 | 类型 | 空 | 说明 |
 | --- | --- | --- | --- |
@@ -982,6 +1002,29 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | 汇率取值 | 指定日期 → 取当天汇率；当天没有 → 取**该日期之前最近一条**；完全无 → 置 0 且响应标 `rateMissing=true`（**不允许把 0 当真实折算金额静默入库**） |
 | 币种 | 全链路**一单一币种**，明细不存币种，不做跨币种混加 |
 
+### 5.6 迁移规划（Flyway）
+
+结构与种子数据一律走 `src/main/resources/db/migration/V*__*.sql`，**已执行的 migration 禁止修改**
+（校验和不匹配 → 启动失败）。每个里程碑一个版本文件：
+
+| 版本 | 文件 | 内容 |
+| --- | --- | --- |
+| V1 | `V1__init_project_info_manage.sql` | 存量基线（用户 / 角色 / 权限 / 彩票产品 / 彩票期号），**不修改** |
+| V2 | `V2__init_crm_customer.sql` | CRM 客户域：`t_customer` / `t_customer_contact` / `t_customer_tag` / `t_customer_tag_rel` / `t_dict_type` / `t_dict_item`；`crm:access` 权限点并授给已有角色；`customer_source` / `customer_level` 字典 |
+| V3 | `V3__init_crm_product.sql` | CRM 产品域：`t_crm_product` / `t_crm_product_price`；`product_category` 字典类型 |
+| V4 | `V4__init_crm_opportunity.sql` | CRM 商机域：`t_opportunity`；`opportunity_stage` 字典类型与 6 个阶段项（含 `extra.defaultWinRate`） |
+| M3 | `V5__init_crm_inquiry_quotation.sql` | 询盘 + 报价域（待交付） |
+| M4 | `V6__init_crm_order.sql` | 订单 + 发货 + 应收域（待交付） |
+| M5 | `V7__init_crm_email_message.sql` | 邮件 + 站内信 + 汇率域（待交付） |
+
+**命名约定**：
+
+- CRM 表统一 `t_` 前缀；与 V1 存量表重名的加 `crm_` 前缀（`t_crm_product` / `t_crm_product_price`）。
+- 逻辑删除列 `deleted BIGINT`，`0` = 未删除，删除时写入毫秒时间戳。
+- **业务唯一索引必须带 `deleted` 列**，保证"删了还能再建"。
+- 唯一例外：`t_crm_product_price` 走**物理删除** —— 它不被任何表引用（报价只做成本单价快照），
+  且"整批替换"语义下软删会让同一批次的 `deleted` 时间戳相同而撞唯一索引。
+
 ---
 
 ## 6. 实施顺序
@@ -1001,55 +1044,82 @@ CRM 模块**一律按 TDD 推进**：先写测试（红）→ 再写实现（绿
 | 业务异常 | 断言 `IllegalArgumentException` / `UnauthorizedException` / `ForbiddenException`，**不在 Service 里 try-catch 吞掉** |
 | 提交红线 | `./mvnw -B test` 必须离线跑通，不连 MySQL / 不连外部接口 |
 
-**已写好的测试基线**（实现尚未落地，当前为"红"）
+**测试基线**（M1 / M2 / M3 已全绿，共 308 条）
 
-| 测试类 | 用例数 | 覆盖的契约 |
-| --- | --- | --- |
-| `E164PhoneValidatorTests` | 22 | §8.2 E.164 格式、长度、国家码、错误文案 |
-| `QuotationPricingServiceTests` | 29 | §3.5.1 加价率/折扣/手工改价/舍入/汇总/成本缺失/币种不符/MOQ/停售/服务端重算 |
-| `OrderStatusServiceTests` | 25 | §3.7 订单状态机合法与非法流转、终态 |
-| `OpportunityStageServiceTests` | 19 | §3.3 商机阶段机、跳级拒绝、LOST 必填原因 |
-| `QuotationStatusServiceTests` | 16 | §3.5 报价单状态机、REJECTED 必填原因、过期判定 |
-| `CurrencyCrossCheckServiceTests` | 15 | 汇率文档 §4 偏差算法、分级阈值、日期差跳过、熔断与恢复 |
-| `CurrencyRateQueryServiceTests` | 7 | §5.5 取汇率、USD 三角折算、无汇率返回 null |
-| `MessageServiceTests` | 10 | §3.11 群发 fan-out、系统消息无发送人、已读与未读数 |
-| `CrmContextSmokeTests` | 1 | CRM Mapper/Service 接入后应用上下文仍可装配 |
+| 测试类 | 用例数 | 状态 | 覆盖的契约 |
+| --- | --- | --- | --- |
+| `E164PhoneValidatorTests` | 22 | 绿 | §8.2 E.164 格式、长度、国家码、错误文案 |
+| `QuotationPricingServiceTests` | 29 | 绿 | §3.5.1 加价率/折扣/手工改价/舍入/汇总/成本缺失/币种不符/MOQ/停售/服务端重算 |
+| `OrderStatusServiceTests` | 25 | 绿 | §3.7 订单状态机合法与非法流转、终态 |
+| `OpportunityStageServiceTests` | 19 | 绿 | §3.3 商机阶段机、跳级拒绝、LOST 必填原因 |
+| `QuotationStatusServiceTests` | 16 | 绿 | §3.5 报价单状态机、REJECTED 必填原因、过期判定 |
+| `CurrencyCrossCheckServiceTests` | 15 | 绿 | 汇率文档 §4 偏差算法、分级阈值、日期差跳过、熔断与恢复 |
+| `CurrencyRateQueryServiceTests` | 7 | 绿 | §5.5 取汇率、USD 三角折算、无汇率返回 null |
+| `MessageServiceTests` | 10 | 绿 | §3.11 群发 fan-out、系统消息无发送人、已读与未读数 |
+| `CustomerServiceTests` | 15 | 绿 | §3.1 客户建档去重、必填、关联计数、有商机时禁止删除 |
+| `CustomerContactServiceTests` | 9 | 绿 | §3.2 联系人 E.164、客户内邮箱 / 电话唯一 |
+| `CustomerControllerTests` | 9 | 绿 | §4.2 客户 8 个端点的响应契约（含 Excel 导出） |
+| `CrmProductServiceTests` | 20 | 绿 | §3.6 编码唯一、数值非负、参考价整批替换与去重 |
+| `CrmProductControllerTests` | 9 | 绿 | §4.7 产品 7 个端点的响应契约 |
+| `CrmOpportunityServiceTests` | 19 | 绿 | §3.3 阶段流转、LOST 必填原因、逻辑外键、本位币快照、漏斗统计 |
+| `CrmOpportunityControllerTests` | 8 | 绿 | §4.4 商机端点的响应契约 |
+| `CrmDashboardServiceTests` | 7 | 绿 | §3.10 顶部指标、趋势空桶补齐、赢单率同期群口径 |
+| `CrmDashboardControllerTests` | 5 | 绿 | §4.11 看板 4 个端点的响应契约 |
+| `CrmQuotationServiceTests` | 28 | 绿 | §3.5 / §3.5.1 服务端算价、手工改价、版本递增、明细快照、DRAFT 可改、过期判定、状态流转 |
+| `CrmQuotationControllerTests` | 10 | 绿 | §4.6 报价 9 个端点的响应契约 |
+| `CrmInquiryServiceTests` | 12 | 绿 | §3.4 客户 / 联系人归属校验、关联报价单、超时未报价判定 |
+| `CrmInquiryControllerTests` | 6 | 绿 | §4.5 询盘 5 个端点的响应契约 |
+| `CrmAccessInterceptorTests` | 4 | 绿 | §2.2 `crm:access` 权限点拦截与非 CRM 路径放行 |
+| `CrmContextSmokeTests` | 1 | 绿 | CRM Mapper/Service 接入后应用上下文仍可装配 |
 
 > 后续每个里程碑按同一模式补测试：先在对应测试类里加用例（红），再实现（绿）。
 
-### M1 · 客户建档
+### M1 · 客户建档 ✅ 已交付
 
-| 任务 | 产出 |
-| --- | --- |
-| Flyway `V2__init_crm_schema.sql` | 建 §5.3 的表（不含 t_currency 4 表与 t_message） |
-| `V3__add_crm_permission.sql` | 插入 `crm:access` 并授予业务员角色 |
-| `V4__add_crm_dict_data.sql` | 字典初始数据（来源渠道、客户等级、商机阶段、贸易术语、付款方式、产品分类） |
-| `E164PhoneValidator`（common 包） | E.164 校验工具 |
-| 客户 / 联系人 / 标签 CRUD + **Excel 导出** | 8 + 5 个端点 |
-| 迁移 `LotteryPeriodMapper` 到 PageHelper | 统一分页写法 |
+| 任务 | 产出 | 状态 |
+| --- | --- | --- |
+| Flyway `V2__init_crm_customer.sql` | 客户 / 联系人 / 标签 / 字典表 + `crm:access` 权限点 + 客户来源与等级字典 | ✅ |
+| `E164PhoneValidator`（common 包） | E.164 校验工具 | ✅ |
+| `CrmAccessInterceptor` + `WebMvcConfig` 注册 | `/api/crm/**` 统一校验 `crm:access` | ✅ |
+| 客户 CRUD + **Excel 导出** | 8 个端点（EasyExcel，RFC-5987 文件名） | ✅ |
+| 联系人 CRUD | 5 个端点 | ✅ |
 
-**验收**：能建客户与联系人；重复客户被唯一约束拦下；非法电话返回 400；导出 Excel 能正常打开、中文不乱码、金额列可求和。
+> **未做（有意）**：客户 / 联系人 **标签**的 CRUD 端点（§4 的端点清单里本就没有标签端点，
+> 只建了表 `t_customer_tag` / `t_customer_tag_rel` 供后续使用）；`LotteryPeriodMapper`
+> 迁移到 PageHelper 属于存量彩票域的重构，与 CRM 无关，本期不动。
 
-### M2 · 商机与产品
+**验收**：能建客户与联系人；重复客户被唯一约束拦下；非法电话返回 400；导出 Excel 能正常打开、中文不乱码。
 
-| 任务 | 产出 |
-| --- | --- |
-| 产品 / 参考价 CRUD | 7 个端点 |
-| 商机 CRUD + 阶段流转 + 漏斗统计 | 8 个端点 |
-| 看板第一版（漏斗 + 趋势 + 客户分析） | 4 个端点 |
+### M2 · 商机与产品 ✅ 已交付
+
+| 任务 | 产出 | 状态 |
+| --- | --- | --- |
+| Flyway `V3__init_crm_product.sql` | `t_crm_product` / `t_crm_product_price` + `product_category` 字典 | ✅ |
+| Flyway `V4__init_crm_opportunity.sql` | `t_opportunity` + `opportunity_stage` 字典（6 项，带默认赢率） | ✅ |
+| 产品 / 参考价 CRUD | 7 个端点 | ✅ |
+| 商机 CRUD + 阶段流转 + 漏斗统计 | 7 个端点（`convert-to-order` 移至 M4） | ✅ |
+| 看板第一版（漏斗 + 趋势 + 客户分析） | 4 个端点（账龄 / 产品排行移至 M4 / M5） | ✅ |
 
 **验收**：商机六阶段流转合法；置 LOST 必须填原因；赢单率按当前快照统计正确。
 
-### M3 · 询盘与报价（核心）
+> **已验证**：Flyway V3 / V4 在真实 MySQL 8 上跑通；登录后走真实 HTTP 跑通建客户 → 建产品 →
+> 建商机 → 推进阶段 → 漏斗 / 看板 → 导出 xlsx 的全链路。
 
-| 任务 | 产出 |
-| --- | --- |
-| 询盘 CRUD | 5 个端点 |
-| 报价 CRUD + 版本 + 状态机 + 试算 + 重算 | 10 个端点 |
-| **自动算价引擎** | 成本快照、加价率/折扣、MOQ 与币种校验、手工改价标记、服务端重算 |
-| 报价转订单 | 快照单价金额，商机自动置 WON |
+### M3 · 询盘与报价（核心）✅ 已交付
+
+| 任务 | 产出 | 状态 |
+| --- | --- | --- |
+| Flyway `V5__init_crm_inquiry_quotation.sql` | `t_inquiry` / `t_quotation` / `t_quotation_item` | ✅ |
+| 询盘 CRUD + 超时未报价 | 5 个端点（列表 / 详情 / 新建 / 更新 / 基于询盘建报价单） | ✅ |
+| 报价 CRUD + 版本 + 状态机 + 试算 + 重算 | 9 个端点（`convert-to-order` 移至 M4） | ✅ |
+| **自动算价引擎** | 成本快照、加价率/折扣、MOQ 与币种校验、手工改价标记、服务端重算 | ✅（复用 `QuotationPricingService`） |
 
 **验收**：改数量或加价率后金额自动重算；前端传的 `unitPrice` 被忽略；成本币种不符被拒；MOQ 不足被拒；利润汇总正确。
+
+> **已验证（真实 HTTP + MySQL）**：建询盘 → 试算 → 基于询盘建报价单（versionNo = 1）→
+> 同币种再建一版（versionNo = 2）→ 改数量与加价率自动重算 → 提交 `SENT` →
+> 已发送的单不允许改 → 拒绝必填原因 → 询盘 `first_reply_at` 回填且状态转 `QUOTED`；
+> EUR 报价被"成本币种不符"拦下。
 
 ### M4 · 订单与收款
 

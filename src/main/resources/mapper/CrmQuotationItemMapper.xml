@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationItemMapper">
+
+    <sql id="BaseColumns">
+        id, quotation_id, product_id, product_name, specification, quantity, unit, cost_price,
+        markup_rate, discount_rate, unit_price, amount, manual_price, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectByQuotationId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmQuotationItemEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_quotation_item
+        WHERE quotation_id = #{quotationId}
+          AND deleted = 0
+        ORDER BY id ASC
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmQuotationItemEntity">
+        INSERT INTO t_quotation_item
+        (id, quotation_id, product_id, product_name, specification, quantity, unit, cost_price,
+         markup_rate, discount_rate, unit_price, amount, manual_price, deleted)
+        VALUES
+        (#{id}, #{quotationId}, #{productId}, #{productName}, #{specification}, #{quantity}, #{unit},
+         #{costPrice}, #{markupRate}, #{discountRate}, #{unitPrice}, #{amount}, #{manualPrice}, #{deleted})
+    </insert>
+
+    <update id="softDeleteByQuotationId">
+        UPDATE t_quotation_item
+        SET deleted = #{deletedAt}
+        WHERE quotation_id = #{quotationId}
+          AND deleted = 0
+    </update>
+
+</mapper>

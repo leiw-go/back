@@ -7,6 +7,7 @@ package com.yaowenltd.projectinfomationmanage.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,6 +40,18 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST.value(), "validation error", null);
         result.setErrors(errors);
         return result;
+    }
+
+    /**
+     * 处理请求体缺失或格式错误（{@code @RequestBody} 无法反序列化）.
+     *
+     * @param exception 请求体解析异常
+     * @return 含错误信息的响应体
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseResult<Void> handleMessageNotReadable(HttpMessageNotReadableException exception) {
+        LOGGER.warn("Unreadable request body: {}", exception.getMessage());
+        return ResponseResult.badRequest("malformed request body");
     }
 
     /**

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmDashboardMapper">
+
+    <select id="countActiveCustomers" resultType="long">
+        SELECT COUNT(1)
+        FROM t_customer
+        WHERE deleted = 0
+          AND (customer_status IS NULL OR customer_status != 'LOST')
+    </select>
+
+    <select id="sumOpenOpportunities"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardAggregateDto">
+        SELECT COUNT(1) AS count,
+               COALESCE(SUM(amount_base), 0) AS amount_base
+        FROM t_opportunity
+        WHERE deleted = 0
+          AND stage NOT IN ('WON', 'LOST')
+    </select>
+
+    <sql id="PeriodExpr">
+        <choose>
+            <when test="granularity == 'QUARTER'">
+                CONCAT(YEAR(create_time), '-Q', QUARTER(create_time))
+            </when>
+            <otherwise>
+                DATE_FORMAT(create_time, '%Y-%m')
+            </otherwise>
+        </choose>
+    </sql>
+
+    <select id="countNewCustomersByPeriod"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardPeriodAggregateDto">
+        SELECT <include refid="PeriodExpr"/> AS period,
+               COUNT(1) AS count
+        FROM t_customer
+        WHERE deleted = 0
+        GROUP BY period
+    </select>
+
+    <select id="countNewOpportunitiesByPeriod"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardPeriodAggregateDto">
+        SELECT <include refid="PeriodExpr"/> AS period,
+               COUNT(1) AS count,
+               SUM(CASE WHEN stage = 'WON' THEN 1 ELSE 0 END) AS won,
+               SUM(CASE WHEN stage IN ('WON', 'LOST') THEN 1 ELSE 0 END) AS decided,
+               COALESCE(SUM(amount_base), 0) AS amount_base
+        FROM t_opportunity
+        WHERE deleted = 0
+        GROUP BY period
+    </select>
+
+    <select id="countByCustomerSource"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardCustomerSourceDto">
+        SELECT c.source AS source,
+               COUNT(DISTINCT c.id) AS customer_count,
+               COUNT(DISTINCT o.id) AS opportunity_count,
+               COALESCE(SUM(o.amount_base), 0) AS opportunity_amount_base
+        FROM t_customer c
+                 LEFT JOIN t_opportunity o ON o.customer_id = c.id AND o.deleted = 0
+        WHERE c.deleted = 0
+        GROUP BY c.source
+    </select>
+
+</mapper>

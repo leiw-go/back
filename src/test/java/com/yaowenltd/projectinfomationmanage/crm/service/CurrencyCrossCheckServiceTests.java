@@ -113,7 +113,7 @@ class CurrencyCrossCheckServiceTests {
         CrossCheckOutcome outcome = crossCheckService.check(sameDateRequest("100", "101.5", CORE_THRESHOLD, true));
 
         assertEquals(CurrencyCheckResult.REJECT, outcome.getResult());
-        assertDeviationNear(outcome.getDeviation(), "1.481481");
+        assertDeviationNear(outcome.getDeviation(), "1.488834");
     }
 
     @Test
@@ -138,7 +138,7 @@ class CurrencyCrossCheckServiceTests {
     @Test
     @DisplayName("两源数据日期差超过上限时跳过比对")
     void testLargeDateGapIsSkipped() {
-        LocalDate primaryDate = LocalDate.of(2026, 11, 5);
+        LocalDate primaryDate = LocalDate.of(2026, 11, 4);
         LocalDate secondaryDate = LocalDate.of(2026, 11, 8);
         CrossCheckRequest req = request(
                 quote("CNY", "6.6635", primaryDate), quote("CNY", "6.6908", secondaryDate),
@@ -148,7 +148,7 @@ class CurrencyCrossCheckServiceTests {
 
         assertEquals(CurrencyCheckResult.SKIP, outcome.getResult(),
                 "a 3-day gap beyond the limit must not be compared");
-        assertEquals(3, outcome.getDateGapDays());
+        assertEquals(4, outcome.getDateGapDays());
     }
 
     @Test

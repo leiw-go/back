@@ -95,7 +95,13 @@ class OrderStatusServiceTests {
     @Test
     @DisplayName("null 状态应被拒绝")
     void testNullStateIsRejected() {
-        assertThrows(IllegalArgumentException.class, () -> orderStatusService.canTransit(null, OrderStatus.SHIPPED));
-        assertThrows(IllegalArgumentException.class, () -> orderStatusService.canTransit(OrderStatus.CONFIRMED, null));
+        // canTransit 是全函数：null 一律返回 false，调用方不会因为漏判 null 而拿到 NPE
+        assertFalse(orderStatusService.canTransit(null, OrderStatus.SHIPPED));
+        assertFalse(orderStatusService.canTransit(OrderStatus.CONFIRMED, null));
+        // assertCanTransit 才是对外的强校验入口，null 直接抛业务异常
+        assertThrows(IllegalArgumentException.class,
+                () -> orderStatusService.assertCanTransit(null, OrderStatus.SHIPPED));
+        assertThrows(IllegalArgumentException.class,
+                () -> orderStatusService.assertCanTransit(OrderStatus.CONFIRMED, null));
     }
 }

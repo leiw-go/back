@@ -39,15 +39,16 @@ class QuotationStatusServiceTests {
 
     @ParameterizedTest(name = "[{index}] {0} -> {1} 允许流转")
     @CsvSource({
-            "DRAFT,SENT",
-            "SENT,CONFIRMED",
-            "SENT,REJECTED"
+            "DRAFT,SENT,",
+            "SENT,CONFIRMED,",
+            "SENT,REJECTED,价格谈不拢"
     })
     @DisplayName("合法流转应被允许")
-    void testLegalTransitionsAreAllowed(QuotationStatus from, QuotationStatus to) {
+    void testLegalTransitionsAreAllowed(QuotationStatus from, QuotationStatus to, String rejectReason) {
         assertTrue(quotationStatusService.canTransit(from, to),
                 from + " -> " + to + " should be a legal transition");
-        assertDoesNotThrow(() -> quotationStatusService.assertCanTransit(from, to, null));
+        // 转 REJECTED 额外要求填拒绝原因，其余流转不需要
+        assertDoesNotThrow(() -> quotationStatusService.assertCanTransit(from, to, rejectReason));
     }
 
     @ParameterizedTest(name = "[{index}] {0} -> {1} 非法流转")
