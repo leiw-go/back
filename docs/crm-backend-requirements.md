@@ -988,6 +988,35 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 
 每个里程碑结束都要 `./mvnw -B test` 通过 + `./mvnw -B -DskipTests package` 通过。
 
+### 6.1 TDD 约定
+
+CRM 模块**一律按 TDD 推进**：先写测试（红）→ 再写实现（绿）→ 再重构。
+
+| 项 | 约定 |
+| --- | --- |
+| 测试位置 | `src/test/java/com/yaowenltd/projectinfomationmanage/crm/` |
+| 纯逻辑测试 | JUnit 5，**不加 `@SpringBootTest`**，不连数据库；用 Mockito 打桩 Mapper |
+| 上下文冒烟 | 只有 `CrmContextSmokeTests` 用 `@SpringBootTest`，显式排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`，全部 Mapper 用 `@MockBean` 占位 |
+| 命名 | 测试类 `XxxTests`（包级私有），测试方法 `testXxx`；一条断言一个契约 |
+| 业务异常 | 断言 `IllegalArgumentException` / `UnauthorizedException` / `ForbiddenException`，**不在 Service 里 try-catch 吞掉** |
+| 提交红线 | `./mvnw -B test` 必须离线跑通，不连 MySQL / 不连外部接口 |
+
+**已写好的测试基线**（实现尚未落地，当前为"红"）
+
+| 测试类 | 用例数 | 覆盖的契约 |
+| --- | --- | --- |
+| `E164PhoneValidatorTests` | 22 | §8.2 E.164 格式、长度、国家码、错误文案 |
+| `QuotationPricingServiceTests` | 29 | §3.5.1 加价率/折扣/手工改价/舍入/汇总/成本缺失/币种不符/MOQ/停售/服务端重算 |
+| `OrderStatusServiceTests` | 25 | §3.7 订单状态机合法与非法流转、终态 |
+| `OpportunityStageServiceTests` | 19 | §3.3 商机阶段机、跳级拒绝、LOST 必填原因 |
+| `QuotationStatusServiceTests` | 16 | §3.5 报价单状态机、REJECTED 必填原因、过期判定 |
+| `CurrencyCrossCheckServiceTests` | 15 | 汇率文档 §4 偏差算法、分级阈值、日期差跳过、熔断与恢复 |
+| `CurrencyRateQueryServiceTests` | 7 | §5.5 取汇率、USD 三角折算、无汇率返回 null |
+| `MessageServiceTests` | 10 | §3.11 群发 fan-out、系统消息无发送人、已读与未读数 |
+| `CrmContextSmokeTests` | 1 | CRM Mapper/Service 接入后应用上下文仍可装配 |
+
+> 后续每个里程碑按同一模式补测试：先在对应测试类里加用例（红），再实现（绿）。
+
 ### M1 · 客户建档
 
 | 任务 | 产出 |

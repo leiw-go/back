@@ -277,6 +277,14 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 - 改公共 Bean / 拦截器 / 拦截路径：`/api/**` 时一定更新 `WebMvcConfig`。
 - 改 `pom.xml`：升级 Spring Boot 时**必须**同时核对 `application.yml` 的配置项迁移。
 
+### 12.1 Git 追踪约定
+
+- **要**把新写的 / 修改的文件 `git add` 进暂存区，保证它们**纳入 git 追踪**（`git status` 能看到 staged 条目），
+  这样用户在 IDE 里能看到完整改动集，不会漏掉新增目录。
+- **不要** `git commit`、**不要** `git push` —— 提交时机、提交信息、分支推送都由用户决定。
+- 例外：`.gitignore` 已排除的路径（`target/`、`.env`、`backend.env` 等）不要 `git add -f` 强行纳入。
+- 每次交付后用 `git status` 复核：新增代码应显示为 staged（`A` / `M`），仓库不应有遗漏的 untracked 源文件。
+
 ---
 
 ## 13. AI 代理动手前的硬性 checklist
@@ -292,6 +300,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 - [ ] 涉及 Dockerfile：跨阶段 COPY 路径不要硬编码绝对路径。
 - [ ] 涉及 `pom.xml` / 版本：国内构建，依赖默认 `*` 镜像走 `repo.huaweicloud.com`。
 - [ ] 不要提交：`.env` / `target/` / `.idea/` / `*.log` / 任何含真实凭据的 YAML。
+- [ ] 新增 / 修改的文件已 `git add` 进暂存区（纳入 git 追踪），但**未** commit / push。
 
 ---
 

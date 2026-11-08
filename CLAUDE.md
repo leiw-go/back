@@ -129,6 +129,7 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> [db_url
 - [ ] 改的鉴权路径要么保留默认 JWT，要么显式 `@SkipAuth` 并写明动机。
 - [ ] 没有把 secret / 真实凭据写进仓库。
 - [ ] 改完告知用户在 Jenkinsfile / 环境变量哪些下游需要同步。
+- [ ] 新增 / 修改的文件已 `git add` 进暂存区（纳入 git 追踪），但**未** commit / push（`AGENTS.md` §12.1）。
 
 ---
 
@@ -148,7 +149,7 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> [db_url
 ## 10. 与 agent 系统约定
 
 - **不要**在 `AGENTS.md` / `CLAUDE.md` / `README.md` 里写真实 token / 凭据 / 手机号 / 邮箱。
-- **不要**直接 `git add` / `git commit` / `git push` —— 让用户决定。
+- **要**把新写 / 修改的文件 `git add` 进暂存区，保证纳入 git 追踪；但 **不要** `git commit` / `git push` —— 提交时机与提交信息由用户决定（详见 `AGENTS.md` §12.1）。
 - **不要**改 `.claude/settings.local.json`（这是用户本机权限设置）。
 - **不要**破坏 `mvnw`（已修改为 `0x` 状态可执行）；`git diff mvnw` 看起来异常是预期的。
 - **不要**在 `target/` 下写代码（构建产物，`dockerignore` 已经忽略）。
