@@ -26,7 +26,8 @@
 - [7. 数据库设计](#7-数据库设计)
 - [8. 配置项](#8-配置项)
 - [9. 与 CRM 主流程的关系](#9-与-crm-主流程的关系)
-- [10. 已定决策](#10-已定决策)
+- [10. 实现落地记录](#10-实现落地记录2026-11-09-实测)
+- [11. 已定决策](#11-已定决策)
 
 ---
 
@@ -516,9 +517,10 @@ CREATE TABLE `t_currency_rate_check` (...) ;
 | `crm.currency.sync.enabled` | `true` | 是否开启定时同步 |
 | `crm.currency.sync.cron` | `0 0 7 * * ?` | 每日 07:00 |
 | `crm.currency.sync.base-currency` | `USD` | 基准币种 |
-| `crm.currency.sync.primary-url` | `https://api.frankfurter.dev/v2` | 主源 |
-| `crm.currency.sync.secondary-url` | `https://open.er-api.com/v6` | 比对源（主源失败时接管取值） |
-| `crm.currency.sync.timeout-ms` | `10000` | 单次请求超时 |
+| `crm.currency.sync.primary-url` | `https://api.frankfurter.dev/v2/rates?base=USD` | 主源（汇率） |
+| `crm.currency.sync.primary-currency-url` | `https://api.frankfurter.dev/v2/currencies?scope=all` | 主源（币种字典，用于过滤加密货币） |
+| `crm.currency.sync.secondary-url` | `https://open.er-api.com/v6/latest/USD` | 比对源（主源失败时接管取值） |
+| `crm.currency.sync.timeout-ms` | `10000` | 单次请求超时（汇率模块独立 HTTP 客户端，不复用通用 5s 超时的 RestTemplate） |
 | `crm.currency.sync.quotes` | 空（=全部法定币种） | 只同步指定币种时用 |
 | `crm.currency.sync.secondary.min-interval-hours` | `24` | 比对源最小调用间隔（防 429） |
 | `crm.currency.cross-check.enabled` | `true` | 是否开启交叉比对 |
@@ -528,6 +530,7 @@ CREATE TABLE `t_currency_rate_check` (...) ;
 | `crm.currency.cross-check.max-date-gap-days` | `3` | 超过则判 SKIP（跳过比对，走单源路径 + 合理性校验） |
 | `crm.currency.cross-check.suspect-days` | `3` | 连续超标几天判定 SUSPECT |
 | `crm.currency.cross-check.recover-days` | `5` | 连续达标几天解除 SUSPECT |
+| `crm.currency.sync.currency-stale-days` | `30` | 币种字典里"最后一次有数据"距今超过该天数视为已废止，不入库 |
 | `crm.currency.plausibility.min-rate` | `0.0001` | 汇率下界 |
 | `crm.currency.plausibility.max-rate` | `100000` | 汇率上界 |
 | `crm.currency.plausibility.max-daily-change` | `20` | 单日环比突变阈值（%） |
@@ -555,7 +558,68 @@ CRM 主文档里只有三处直接依赖汇率，其余细节都在本文：
 
 ---
 
-## 10. 已定决策
+## 10. 实现落地记录（2026-11-09 实测）
+
+> 这一节记录**落地时才发现的、与上文设计有出入的地方** —— 以本节为准。
+
+### 10.1 主源的汇率接口会混入加密货币 ⚠️
+
+§4.3 说"静态排除 `type != currency`"，实测发现**光看币种字典不够**：
+
+| 接口 | 实测结果 |
+| --- | --- |
+| `GET /v2/rates?base=USD` | **200 条**，其中含 `AAVE` / `ADA` / `ALGO` / `ATOM` / `AVAX` / `HBAR` 等 **4 位码的加密货币** |
+| `GET /v2/currencies?scope=all` | 258 条 = 219 `currency` + 35 `crypto` + 4 `metal` |
+
+`t_currency.currency_code` 是 `CHAR(3)`，4 位码直接写不进去（`Data too long for column 'currency_code'`）。
+
+**处理**：同步前先取币种字典，用 `type = currency` 的码集合过滤汇率，
+实测 200 条 → **161 条法定币种**入库；字典取不到时退化为"只认 3 位码"的保守规则。
+
+### 10.2 币种字典的 `end_date` 不是废止日期
+
+字典里每个币种都有 `end_date`，**在用币种的 `end_date` 就是"最后一次有数据的日期"（昨天）**，
+而不是废止日期；真正废止的币种（如 `ZWL`）的 `end_date` 会是很久以前。
+
+**处理**：用 `crm.currency.sync.currency-stale-days`（默认 30 天）做窗口判定 ——
+`end_date` 距今超过该窗口才算废止、不入库。
+
+### 10.3 比对源快照日期的解析
+
+比对源的时间戳有两种形态：`time_last_update_unix`（秒级）与
+`time_last_update_utc`（形如 `Sun, 08 Nov 2026 00:02:31 +0000`，**不是** `yyyy-MM-dd`）。
+实现上**优先用 unix 时间戳**（UTC 换算日期），文本格式只作兜底。
+
+### 10.4 日期差超限与单源路径的落地口径
+
+§4.1 的"日期差豁免 → 不入库"与 §4.4 的"单源 + 合理性校验通过 → 入库但未交叉验证"
+在 §2.5 / §2.6 里各说了一半。**落地按 §4.4 的决策矩阵执行**：
+
+| 交叉比对结果 | 落地行为 | `cross_status` |
+| --- | --- | --- |
+| 偏差 ≤ 阈值 | 入库 | `MATCH` |
+| 偏差 ≤ 阈值但环比突变 | 入库（需人工复核） | `WARN` |
+| 偏差 > 阈值 | **不入库**，记录拒绝明细 | `REJECT` |
+| 日期差 > 上限 | 走单源路径 + 合理性校验，通过则入库 | `SINGLE` |
+| 比对源缺该币种 / 比对源整体失败 | 走单源路径 + 合理性校验，通过则入库 | `SINGLE` |
+
+拒绝 / 跳过 / 单源三种情况都**逐币种**写 `t_currency_rate_check`（审计底账）。
+
+### 10.5 首次同步的实测结果
+
+```
+primaryStatus=OK  primaryRows=161      secondaryStatus=OK  secondaryRows=166
+compared=158  matched=152  warned=0  rejected=6  single=3  saved=155
+maxDeviation=16.366989% (SDG)
+```
+
+被拒的 6 个全是长尾币种（`SDG` 16.37%、`IRR` 8.96%、`BWP` 4.59%、`SSP` 4.40%、
+`SCR` 4.50%、`PYG` 4.14%），与 §2.4 的实测分布（SDG 17.83%、IRR 9.17%）吻合 ——
+**说明偏差公式与阈值分级都是对的**。
+
+---
+
+## 11. 已定决策
 
 > 本模块的所有开放问题已定案（与 CRM 主文档 §1.3 决策速查表保持一致）。
 

@@ -78,4 +78,16 @@ public interface CrmInquiryMapper {
      */
     List<CrmInquiryEntity> selectPage(CrmInquiryQueryRequest query);
 
+    /**
+     * 查询超过时限仍未报价的询盘（定时超时扫描用）.
+     * <p>
+     * 判定口径与列表的"超时未报价"一致：创建时间早于截止时刻、没回过价、
+     * 名下没有任何报价单；赢单 / 丢单的询盘不再提醒.
+     * </p>
+     *
+     * @param deadline 截止时刻（创建时间早于它才算超时）
+     * @return 超时未报价的询盘列表
+     */
+    List<CrmInquiryEntity> selectPendingQuoteList(@Param("deadline") LocalDateTime deadline);
+
 }

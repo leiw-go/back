@@ -27,6 +27,9 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardReceivableAgingDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardTopProductDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmReceivableAgingBucketDto;
 
 /**
  * {@link CrmDashboardController} 的单元测试。
@@ -115,6 +118,43 @@ class CrmDashboardControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("应收账龄应返回统一响应体")
+    void testReceivableAging() throws Exception {
+        CrmReceivableAgingBucketDto bucket = new CrmReceivableAgingBucketDto();
+        bucket.setBucket("0-30");
+        bucket.setLabel("0-30 天");
+        bucket.setCount(2);
+        bucket.setAmountBase(new BigDecimal("3000.00"));
+        CrmDashboardReceivableAgingDto aging = new CrmDashboardReceivableAgingDto();
+        aging.setTotalCount(2);
+        aging.setTotalAmountBase(new BigDecimal("3000.00"));
+        aging.setBuckets(Collections.singletonList(bucket));
+        when(crmDashboardService.receivableAging()).thenReturn(aging);
+
+        mockMvc.perform(get("/api/crm/dashboard/receivable-aging"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(2))
+                .andExpect(jsonPath("$.data.buckets[0].bucket").value("0-30"));
+    }
+
+    @Test
+    @DisplayName("产品成交排行应返回统一响应体")
+    void testTopProducts() throws Exception {
+        CrmDashboardTopProductDto dto = new CrmDashboardTopProductDto();
+        dto.setProductId("P1");
+        dto.setProductName("不锈钢水壶");
+        dto.setDealAmountBase(new BigDecimal("12600.00"));
+        dto.setDealQuantity(new BigDecimal("100"));
+        dto.setOrderCount(1);
+        when(crmDashboardService.topProducts(any())).thenReturn(Collections.singletonList(dto));
+
+        mockMvc.perform(get("/api/crm/dashboard/top-products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].productName").value("不锈钢水壶"))
+                .andExpect(jsonPath("$.data[0].dealAmountBase").value(12600.00));
     }
 
 }

@@ -18,6 +18,14 @@
         id, username, password, real_name, email, phone, status, create_time, update_time
     </sql>
 
+    <select id="selectByUsername" parameterType="string" resultMap="UserResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_user
+        WHERE username = #{username}
+        LIMIT 1
+    </select>
+
     <insert id="insertUser" parameterType="User">
         INSERT INTO t_user (id, username, password, real_name, email, phone, status, create_time, update_time)
         VALUES (#{id}, #{username}, #{password}, #{realName}, #{email}, #{phone}, #{status}, #{createTime}, #{updateTime})

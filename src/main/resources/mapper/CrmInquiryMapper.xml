@@ -98,4 +98,18 @@
         </where>
     </sql>
 
+    <select id="selectPendingQuoteList"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmInquiryEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_inquiry
+        WHERE deleted = 0
+          AND first_reply_at IS NULL
+          AND create_time IS NOT NULL
+          AND create_time &lt; #{deadline}
+          AND inquiry_status NOT IN ('WON', 'LOST')
+          AND NOT EXISTS (SELECT 1 FROM t_quotation q WHERE q.inquiry_id = t_inquiry.id AND q.deleted = 0)
+        ORDER BY create_time ASC, id ASC
+    </select>
+
 </mapper>

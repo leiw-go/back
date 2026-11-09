@@ -80,4 +80,14 @@ public class MessageEntity {
      */
     private java.time.LocalDateTime readAt;
 
+    /**
+     * 创建时间
+     */
+    private java.time.LocalDateTime createTime;
+
+    /**
+     * 逻辑删除：0 未删除；删除时写入毫秒时间戳
+     */
+    private Long deleted;
+
 }

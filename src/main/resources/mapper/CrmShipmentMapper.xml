@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmShipmentMapper">
+
+    <sql id="BaseColumns">
+        id, order_id, shipping_no, shipping_type, departure_port, destination_port, ship_date,
+        expect_arrive_date, actual_arrive_date, total_cbm, total_weight, shipment_status, remark,
+        create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmShipmentEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_shipment
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByOrderId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmShipmentEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_shipment
+        WHERE order_id = #{orderId}
+          AND deleted = 0
+        ORDER BY ship_date ASC, id ASC
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmShipmentEntity">
+        INSERT INTO t_shipment
+        (id, order_id, shipping_no, shipping_type, departure_port, destination_port, ship_date,
+         expect_arrive_date, actual_arrive_date, total_cbm, total_weight, shipment_status, remark,
+         deleted)
+        VALUES
+        (#{id}, #{orderId}, #{shippingNo}, #{shippingType}, #{departurePort}, #{destinationPort},
+         #{shipDate}, #{expectArriveDate}, #{actualArriveDate}, #{totalCbm}, #{totalWeight},
+         #{shipmentStatus}, #{remark}, #{deleted})
+    </insert>
+
+    <update id="update" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmShipmentEntity">
+        UPDATE t_shipment
+        SET shipping_no        = #{shippingNo},
+            shipping_type      = #{shippingType},
+            departure_port     = #{departurePort},
+            destination_port   = #{destinationPort},
+            ship_date          = #{shipDate},
+            expect_arrive_date = #{expectArriveDate},
+            actual_arrive_date = #{actualArriveDate},
+            total_cbm          = #{totalCbm},
+            total_weight       = #{totalWeight},
+            shipment_status    = #{shipmentStatus},
+            remark             = #{remark}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE t_shipment
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="countByOrderId" resultType="long">
+        SELECT COUNT(1)
+        FROM t_shipment
+        WHERE order_id = #{orderId}
+          AND deleted = 0
+    </select>
+
+    <select id="selectPage" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.order.CrmShipmentQueryRequest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmShipmentEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_shipment
+        <include refid="QueryWhere"/>
+        ORDER BY ship_date DESC, id DESC
+    </select>
+
+    <sql id="QueryWhere">
+        <where>
+            deleted = 0
+            <if test="orderId != null and orderId != ''">
+                AND order_id = #{orderId}
+            </if>
+            <if test="shippingStatus != null and shippingStatus != ''">
+                AND shipment_status = #{shippingStatus}
+            </if>
+            <if test="shipDateFrom != null">
+                AND ship_date &gt;= #{shipDateFrom}
+            </if>
+            <if test="shipDateTo != null">
+                AND ship_date &lt;= #{shipDateTo}
+            </if>
+        </where>
+    </sql>
+
+</mapper>

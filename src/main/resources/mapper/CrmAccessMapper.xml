@@ -13,4 +13,15 @@
           AND p.permission_code = #{permissionCode}
     </select>
 
+    <select id="selectUserIdsWithPermission" resultType="string">
+        SELECT u.id
+        FROM t_user u
+                 JOIN t_user_role ur ON ur.user_id = u.id
+                 JOIN t_role_permission rp ON rp.role_id = ur.role_id
+                 JOIN t_permission p ON p.id = rp.permission_id
+        WHERE p.permission_code = #{permissionCode}
+          AND u.status = 1
+        GROUP BY u.id
+    </select>
+
 </mapper>

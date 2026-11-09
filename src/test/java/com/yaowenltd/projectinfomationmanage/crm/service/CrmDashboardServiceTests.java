@@ -8,8 +8,13 @@ import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmDashboardMapper;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardAggregateDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardCustomerSourceDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardPeriodAggregateDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardReceivableAgingDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardSummaryDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardTopProductDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardTrendDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmReceivableAgingBucketDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmReceivableAgingRowDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.ReceivableAgingBucket;
 import com.yaowenltd.projectinfomationmanage.crm.service.impl.CrmDashboardServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,10 +32,14 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -80,16 +90,32 @@ class CrmDashboardServiceTests {
     }
 
     @Test
-    @DisplayName("订单域未落地时成交额与逾期应收恒为 0")
-    void testSummaryOrderMetricsAreZeroBeforeOrderDomain() {
+    @DisplayName("订单域没有数据时成交额与逾期应收为 0")
+    void testSummaryOrderMetricsAreZeroWhenNoOrderRows() {
         when(dashboardMapper.countActiveCustomers()).thenReturn(0L);
         when(dashboardMapper.sumOpenOpportunities()).thenReturn(null);
+        when(dashboardMapper.sumMonthDealAmount()).thenReturn(null);
+        when(dashboardMapper.sumOverdueReceivableAmountBase()).thenReturn(null);
 
         CrmDashboardSummaryDto summary = crmDashboardService.summary();
 
         assertEquals(0, summary.getMonthDealAmount().compareTo(BigDecimal.ZERO));
         assertEquals(0, summary.getOverdueReceivableAmount().compareTo(BigDecimal.ZERO));
         assertEquals(0L, summary.getOpenOpportunityCount());
+    }
+
+    @Test
+    @DisplayName("顶部指标的成交额与逾期应收应来自订单域")
+    void testSummaryUsesDealAmountFromOrders() {
+        when(dashboardMapper.countActiveCustomers()).thenReturn(3L);
+        when(dashboardMapper.sumOpenOpportunities()).thenReturn(null);
+        when(dashboardMapper.sumMonthDealAmount()).thenReturn(new BigDecimal("123456.789"));
+        when(dashboardMapper.sumOverdueReceivableAmountBase()).thenReturn(new BigDecimal("8800.5"));
+
+        CrmDashboardSummaryDto summary = crmDashboardService.summary();
+
+        assertEquals(0, new BigDecimal("123456.79").compareTo(summary.getMonthDealAmount()));
+        assertEquals(0, new BigDecimal("8800.50").compareTo(summary.getOverdueReceivableAmount()));
     }
 
     @Test

@@ -7,6 +7,8 @@ package com.yaowenltd.projectinfomationmanage.crm.mapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * CRM 权限点查询 Mapper 接口.
  *
@@ -24,5 +26,13 @@ public interface CrmAccessMapper {
      */
     int countUserWithPermission(@Param("username") String username,
                                 @Param("permissionCode") String permissionCode);
+
+    /**
+     * 查询持有指定权限点的全部用户 ID.
+     *
+     * @param permissionCode 权限码
+     * @return 用户 ID 列表
+     */
+    List<String> selectUserIdsWithPermission(@Param("permissionCode") String permissionCode);
 
 }

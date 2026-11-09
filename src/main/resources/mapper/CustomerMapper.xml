@@ -68,6 +68,26 @@
           AND deleted = 0
     </update>
 
+    <select id="selectByOwner"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer
+        WHERE deleted = 0
+          AND owner_id = #{ownerId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByTagId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_customer
+        WHERE deleted = 0
+          AND id IN (SELECT customer_id FROM t_customer_tag_rel WHERE tag_id = #{tagId})
+        ORDER BY create_time DESC
+    </select>
+
     <select id="selectPage" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.customer.CustomerQueryRequest"
             resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity">
         SELECT

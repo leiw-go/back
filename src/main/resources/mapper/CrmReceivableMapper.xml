@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmReceivableMapper">
+
+    <sql id="BaseColumns">
+        id, order_id, currency_code, receivable_type, receivable_amount, received_amount, due_date,
+        receivable_status, overdue_days, owner_id, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmReceivableEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_receivable
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByOrderId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmReceivableEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_receivable
+        WHERE order_id = #{orderId}
+          AND deleted = 0
+        ORDER BY id ASC
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmReceivableEntity">
+        INSERT INTO t_receivable
+        (id, order_id, currency_code, receivable_type, receivable_amount, received_amount, due_date,
+         receivable_status, overdue_days, owner_id, deleted)
+        VALUES
+        (#{id}, #{orderId}, #{currencyCode}, #{receivableType}, #{receivableAmount}, #{receivedAmount},
+         #{dueDate}, #{receivableStatus}, #{overdueDays}, #{ownerId}, #{deleted})
+    </insert>
+
+    <update id="update" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmReceivableEntity">
+        UPDATE t_receivable
+        SET receivable_amount = #{receivableAmount},
+            received_amount   = #{receivedAmount},
+            due_date          = #{dueDate},
+            receivable_status = #{receivableStatus},
+            overdue_days      = #{overdueDays}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="selectPage" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.order.CrmReceivableQueryRequest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmReceivableEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_receivable
+        <include refid="QueryWhere"/>
+        ORDER BY due_date ASC, id ASC
+    </select>
+
+    <sql id="QueryWhere">
+        <where>
+            deleted = 0
+            <if test="orderId != null and orderId != ''">
+                AND order_id = #{orderId}
+            </if>
+            <if test="receivableStatus != null and receivableStatus != ''">
+                AND receivable_status = #{receivableStatus}
+            </if>
+            <if test="ownerId != null and ownerId != ''">
+                AND owner_id = #{ownerId}
+            </if>
+            <if test="dueDateFrom != null">
+                AND due_date &gt;= #{dueDateFrom}
+            </if>
+            <if test="dueDateTo != null">
+                AND due_date &lt;= #{dueDateTo}
+            </if>
+            <if test="overdueOnly != null and overdueOnly">
+                AND receivable_status != 'PAID'
+                AND due_date IS NOT NULL
+                AND due_date &lt; CURDATE()
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectAging"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.order.CrmReceivableAgingBucket">
+        SELECT CASE
+                   WHEN DATEDIFF(CURDATE(), due_date) &lt;= 30 THEN '0-30'
+                   WHEN DATEDIFF(CURDATE(), due_date) &lt;= 60 THEN '31-60'
+                   WHEN DATEDIFF(CURDATE(), due_date) &lt;= 90 THEN '61-90'
+                   ELSE '90+'
+                   END AS bucket,
+               COALESCE(SUM(receivable_amount - received_amount), 0) AS amount,
+               COUNT(1) AS count
+        FROM t_receivable
+        WHERE deleted = 0
+          AND receivable_status != 'PAID'
+          AND due_date IS NOT NULL
+          AND due_date &lt; CURDATE()
+        GROUP BY bucket
+    </select>
+
+    <select id="selectOverdueList"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmReceivableEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_receivable
+        WHERE deleted = 0
+          AND due_date IS NOT NULL
+          AND due_date &lt; #{today}
+          AND receivable_status != 'PAID'
+          AND receivable_amount &gt; received_amount
+        ORDER BY due_date ASC, id ASC
+    </select>
+
+</mapper>

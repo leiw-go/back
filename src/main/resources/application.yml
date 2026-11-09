@@ -53,3 +53,70 @@ management:
 jwt:
   secret: ${JWT_SECRET:}
   expiration: ${JWT_EXPIRATION:86400000}
+
+# ============================================================
+# CRM 汇率模块（详见 docs/crm-currency-rate-design.md §8）
+# 改动这些值需要重启容器 —— 本工程没有配置中心
+# ============================================================
+crm:
+  message:
+    # 已读消息保留天数（未读不清理）
+    retention-days: ${CRM_MESSAGE_RETENTION_DAYS:90}
+    # 站内信清理任务（Asia/Shanghai）
+    cleanup-cron: ${CRM_MESSAGE_CLEANUP_CRON:0 30 3 * * ?}
+  inquiry:
+    # 询盘超过多少天未报价就提醒
+    timeout-days: ${CRM_INQUIRY_TIMEOUT_DAYS:3}
+    # 询盘超时扫描任务（Asia/Shanghai）
+    timeout-cron: ${CRM_INQUIRY_TIMEOUT_CRON:0 0 9 * * ?}
+  receivable:
+    # 应收逾期扫描任务（Asia/Shanghai）
+    overdue-cron: ${CRM_RECEIVABLE_OVERDUE_CRON:0 0 8 * * ?}
+  currency:
+    # 本位币（各表 *_base 列的折算目标）
+    base-currency: ${CRM_CURRENCY_BASE_CURRENCY:USD}
+    sync:
+      # 是否开启定时同步
+      enabled: ${CRM_CURRENCY_SYNC_ENABLED:true}
+      # 每日 07:00（Asia/Shanghai）
+      cron: ${CRM_CURRENCY_SYNC_CRON:0 0 7 * * ?}
+      # 落库基准币（统一 USD）
+      base-currency: ${CRM_CURRENCY_SYNC_BASE_CURRENCY:USD}
+      # 主源：Frankfurter v2（各国央行参考价）
+      primary-url: ${CRM_CURRENCY_PRIMARY_URL:https://api.frankfurter.dev/v2/rates?base=USD}
+      # 主源币种字典（名称 / 符号 / 数字码）
+      primary-currency-url: ${CRM_CURRENCY_PRIMARY_CURRENCY_URL:https://api.frankfurter.dev/v2/currencies?scope=all}
+      # 比对源：open.er-api v6（市场中间价快照，官方建议 <=1 次/24h）
+      secondary-url: ${CRM_CURRENCY_SECONDARY_URL:https://open.er-api.com/v6/latest/USD}
+      # 单次请求超时（毫秒）
+      timeout-ms: ${CRM_CURRENCY_TIMEOUT_MS:10000}
+      # 只同步指定币种；留空 = 全部法定币种
+      quotes: ${CRM_CURRENCY_QUOTES:}
+      # 比对源最小调用间隔（小时），防止触发 429
+      secondary:
+        min-interval-hours: ${CRM_CURRENCY_SECONDARY_MIN_INTERVAL_HOURS:24}
+      # 币种字典里"最后一次有数据"距今超过该天数的币种视为已废止，不入库
+      currency-stale-days: ${CRM_CURRENCY_STALE_DAYS:30}
+    cross-check:
+      enabled: ${CRM_CURRENCY_CROSS_CHECK_ENABLED:true}
+      # 核心币种清单（唯一真相源，阈值 1%）
+      core-currencies: ${CRM_CURRENCY_CORE_CURRENCIES:USD,EUR,CNY,JPY,GBP,HKD,KRW,SGD,TWD,AUD,CAD,CHF,AED,SAR,THB,MYR,INR,RUB,BRL,MXN,VND,ZAR,TRY,PLN,NOK,SEK,DKK,EGP,PHP,IDR}
+      # 核心币种偏差阈值（%）
+      threshold-core: ${CRM_CURRENCY_THRESHOLD_CORE:1.0}
+      # 一般币种偏差阈值（%）
+      threshold-normal: ${CRM_CURRENCY_THRESHOLD_NORMAL:3.0}
+      # 两源数据日期差超过此值判 SKIP（跳过比对，走单源路径）
+      max-date-gap-days: ${CRM_CURRENCY_MAX_DATE_GAP_DAYS:3}
+      # 连续超标几天判定 SUSPECT（熔断）
+      suspect-days: ${CRM_CURRENCY_SUSPECT_DAYS:3}
+      # 连续达标几天解除 SUSPECT
+      recover-days: ${CRM_CURRENCY_RECOVER_DAYS:5}
+    plausibility:
+      # 汇率下界
+      min-rate: ${CRM_CURRENCY_MIN_RATE:0.0001}
+      # 汇率上界
+      max-rate: ${CRM_CURRENCY_MAX_RATE:100000}
+      # 单日环比突变阈值（%）
+      max-daily-change: ${CRM_CURRENCY_MAX_DAILY_CHANGE:20}
+      # 数据最大可接受陈旧天数
+      max-stale-days: ${CRM_CURRENCY_MAX_STALE_DAYS:7}

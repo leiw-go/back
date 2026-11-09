@@ -261,8 +261,10 @@ CONFIRMED 已确认 → IN_PRODUCTION 生产中 → SHIPPED 已发货 → DELIVE
 
 ### 3.10 经营看板（Dashboard）
 
-> **M2 版口径**（订单域未落地前的已知取舍）：
-> - 成交额、逾期应收、成交产品排行**恒为 0 / 空** —— M4 接入订单域后才有数；
+> **当前口径**（M4 / M5 订单域已接入）：
+> - 成交额取订单表 `t_order.total_amount_base`（本位币 USD 快照）合计，
+>   成交口径 = 订单状态不是 `CANCELLED`，按订单创建时间归月 / 归季；
+> - 逾期应收取未收齐且已过到期日的应收，按订单的 `total_amount_base / total_amount` 折成本位币；
 > - 趋势的赢单率按**同期群口径**统计：某期间新增的商机里，当前阶段为 `WON` 的占比；
 > - 漏斗的阶段转化率 = 本阶段商机数 ÷ 上一阶段商机数（按当前 `stage` 快照，无流转历史）。
 
@@ -560,8 +562,8 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 
 ### 4.11 看板 `/api/crm/dashboard`
 
-> **M2 交付范围**：前 4 个端点（summary / pipeline / trend / customer-source）。
-> `receivable-aging` 与 `top-products` 依赖订单域，**M4 交付**。
+> **M5 已补齐**：`receivable-aging`（0-30 / 31-60 / 61-90 / 90+ 分桶）与
+> `top-products`（按成交金额排行，`limit` 默认 10、上限 50）依赖订单域，M5 随 M4 订单域一并交付。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -1013,9 +1015,9 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | V2 | `V2__init_crm_customer.sql` | CRM 客户域：`t_customer` / `t_customer_contact` / `t_customer_tag` / `t_customer_tag_rel` / `t_dict_type` / `t_dict_item`；`crm:access` 权限点并授给已有角色；`customer_source` / `customer_level` 字典 |
 | V3 | `V3__init_crm_product.sql` | CRM 产品域：`t_crm_product` / `t_crm_product_price`；`product_category` 字典类型 |
 | V4 | `V4__init_crm_opportunity.sql` | CRM 商机域：`t_opportunity`；`opportunity_stage` 字典类型与 6 个阶段项（含 `extra.defaultWinRate`） |
-| M3 | `V5__init_crm_inquiry_quotation.sql` | 询盘 + 报价域（待交付） |
-| M4 | `V6__init_crm_order.sql` | 订单 + 发货 + 应收域（待交付） |
-| M5 | `V7__init_crm_email_message.sql` | 邮件 + 站内信 + 汇率域（待交付） |
+| M3 | `V5__init_crm_inquiry_quotation.sql` | 询盘 + 报价域 ✅ |
+| M4 | `V6__init_crm_order.sql` | 订单 + 发货 + 应收域 ✅ |
+| M5 | `V7__init_crm_message_email_currency.sql` | 站内信 + 邮件 + 汇率域 ✅ |
 
 **命名约定**：
 
@@ -1121,26 +1123,44 @@ CRM 模块**一律按 TDD 推进**：先写测试（红）→ 再写实现（绿
 > 已发送的单不允许改 → 拒绝必填原因 → 询盘 `first_reply_at` 回填且状态转 `QUOTED`；
 > EUR 报价被"成本币种不符"拦下。
 
-### M4 · 订单与收款
+### M4 · 订单与收款 ✅ 已交付
 
-| 任务 | 产出 |
-| --- | --- |
-| 订单 CRUD + 状态机 | 7 个端点 |
-| 发货（支持分批）+ 应收（定金/尾款拆分）+ 核销 + 账龄 | 6 个端点 |
+| 任务 | 产出 | 状态 |
+| --- | --- | --- |
+| Flyway `V6__init_crm_order.sql` | `t_order` / `t_order_item` / `t_shipment` / `t_receivable` + `incoterm` / `payment_term` 字典 | ✅ |
+| 订单 CRUD + 状态机 | 7 个端点 | ✅ |
+| 发货（支持分批）+ 应收（定金/尾款拆分）+ 核销 + 账龄 | 6 个端点 | ✅ |
 
 **验收**：首次发货订单置 SHIPPED；定金尾款两条应收；核销后状态流转；订单在发货且全额收款后置 COMPLETED。
 
-### M5 · 邮件 · 汇率 · 站内信
+> **状态机口径**：完成态只能从 `DELIVERED` 流转（`SHIPPED → DELIVERED → COMPLETED`），
+> 与需求 §3.7 的阶段语义一致；核销时若订单还没到 `DELIVERED` **不报错**，只沿用当前状态。
 
-| 任务 | 产出 |
-| --- | --- |
-| 邮件模板 / 群发 / 发送记录 | 8 个端点 |
-| 汇率：4 张表 + 双源同步 + 交叉比对 + 熔断 + 定时任务 | 7 个端点（见专项文档） |
-| 站内信：表 + 事件触发 + 未读数 + 轮询 | 7 个端点 |
-| 站内信清理任务、汇率同步任务（cron，`TZ=Asia/Shanghai`） | 定时任务 |
-| 看板补齐（账龄、产品排行、顶部指标） | 2 个端点 |
+### M5 · 邮件 · 汇率 · 站内信 ✅ 已交付
+
+| 任务 | 产出 | 状态 |
+| --- | --- | --- |
+| Flyway `V7__init_crm_message_email_currency.sql` | `t_message` / `t_email_template` / `t_email_campaign` / `t_email_log` / `t_currency` / `t_currency_rate` / `t_currency_sync_log` / `t_currency_rate_check` + `message_type` 字典 | ✅ |
+| 邮件模板 / 群发 / 发送记录 | 8 个端点 | ✅ |
+| 汇率：4 张表 + 双源同步 + 交叉比对 + 合理性校验 + 熔断 + 定时任务 | 7 个端点（见专项文档） | ✅ |
+| 站内信：表 + 事件触发 + 未读数 + 轮询 | 7 个端点 | ✅ |
+| 站内信清理任务、应收逾期扫描、询盘超时扫描、汇率同步任务（cron，`TZ=Asia/Shanghai`） | 4 个定时任务 | ✅ |
+| 看板补齐（账龄、产品排行、顶部指标） | 2 个端点 | ✅ |
+| **联系人 HTTP 层补齐**（§4.3 端点此前只有 Service 没有 Controller） | 5 个端点 | ✅ |
 
 **验收**：报价被拒能收到站内信；未读数正确；汇率同步后两源偏差超阈值的币种被拒绝入库；熔断币种停用。
+
+> **已验证（真实 HTTP + MySQL + 两个免费汇率源）**：客户转交 → 新负责人收到 `CUSTOMER_ASSIGNED` 站内信 →
+> 未读数 2 → 读详情后 1；汇率手动同步一次落库 155 条（比对 158、一致 152、拒绝 6、单源 3），
+> 被拒的 6 个全是长尾币种（SDG 偏差 16.37%、IRR 8.96%），与专项文档 §2.4 的实测分布吻合；
+> 看板成交额从恒为 0 变成真实值（本月 6300 USD），账龄与产品排行返回真实分桶。
+
+> **实现口径补充（专项文档与实地的两处差异，以代码为准）**：
+> 1. **主源的汇率接口会混入加密货币**：实测 `/v2/rates?base=USD` 返回 200 条里有
+>    `AAVE` / `ADA` / `ATOM` 等 4 位码的加密货币，而 `t_currency.currency_code` 只有 3 位 ——
+>    所以同步前必须用主源的币种字典（`type = currency`）过滤，只让法定币种入库（实测过滤后 161 条）。
+> 2. **币种字典的 `end_date` 不是废止日期**，而是"最后一次有数据的日期"（在用币种就是昨天）；
+>    判定"长期无数据才算废止"用 30 天窗口（`crm.currency.sync.currency-stale-days`）。
 
 ### 上线前检查
 

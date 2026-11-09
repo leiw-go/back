@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailLogMapper">
+
+    <sql id="BaseColumns">
+        id, campaign_id, contact_id, email, send_status, error_msg, sent_at, create_time
+    </sql>
+
+    <insert id="insertBatch">
+        INSERT INTO t_email_log
+        (id, campaign_id, contact_id, email, send_status, error_msg, sent_at)
+        VALUES
+        <foreach collection="logs" item="log" separator=",">
+            (#{log.id}, #{log.campaignId}, #{log.contactId}, #{log.email}, #{log.sendStatus},
+             #{log.errorMsg}, #{log.sentAt})
+        </foreach>
+    </insert>
+
+    <select id="selectByCampaignId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailLogEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_email_log
+        WHERE campaign_id = #{campaignId}
+        ORDER BY sent_at DESC, id ASC
+    </select>
+
+</mapper>

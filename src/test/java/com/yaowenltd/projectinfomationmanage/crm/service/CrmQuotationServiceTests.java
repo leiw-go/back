@@ -4,6 +4,7 @@
 
 package com.yaowenltd.projectinfomationmanage.crm.service;
 
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageNotifier;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmInquiryMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOpportunityMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmProductMapper;
@@ -42,6 +43,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.message.MessageDraft;
 
 /**
  * {@link CrmQuotationService} 的单元测试。
@@ -76,13 +78,16 @@ class CrmQuotationServiceTests {
     @Mock
     private CurrencyRateQueryService currencyRateQueryService;
 
+    @Mock
+    private MessageService messageService;
+
     private CrmQuotationService crmQuotationService;
 
     @BeforeEach
     void setUp() {
         crmQuotationService = new CrmQuotationServiceImpl(quotationMapper, quotationItemMapper, inquiryMapper,
                 productMapper, opportunityMapper, customerMapper, new QuotationPricingServiceImpl(),
-                new QuotationStatusServiceImpl(), currencyRateQueryService);
+                new QuotationStatusServiceImpl(), currencyRateQueryService, new MessageNotifier(messageService));
     }
 
     private static CrmQuotationRequest request() {
@@ -556,6 +561,38 @@ class CrmQuotationServiceTests {
         CrmQuotationDto dto = crmQuotationService.create(request());
 
         assertTrue(dto.getQuotationNo().matches("QT\\d{14}"));
+    }
+
+    @Test
+    @DisplayName("报价被拒绝时给负责人发站内信")
+    void testRejectSendsQuotationRejectedMessage() {
+        when(quotationMapper.selectById("Q1")).thenReturn(existing("SENT"));
+        when(quotationItemMapper.selectByQuotationId("Q1")).thenReturn(Collections.emptyList());
+
+        crmQuotationService.reject("Q1", "价格太高");
+
+        ArgumentCaptor<MessageDraft> captor = ArgumentCaptor.forClass(MessageDraft.class);
+        verify(messageService).sendToReceivers(captor.capture(), eq(Collections.singletonList("U1")));
+        MessageDraft draft = captor.getValue();
+        assertEquals("QUOTATION_REJECTED", draft.getMessageType());
+        assertEquals("QUOTATION", draft.getBizType());
+        assertEquals("Q1", draft.getBizId());
+        assertTrue(draft.getContent().contains("价格太高"));
+    }
+
+    @Test
+    @DisplayName("报价被确认时给负责人发站内信")
+    void testConfirmSendsQuotationConfirmedMessage() {
+        when(quotationMapper.selectById("Q1")).thenReturn(existing("SENT"));
+        when(quotationItemMapper.selectByQuotationId("Q1")).thenReturn(Collections.emptyList());
+
+        crmQuotationService.confirm("Q1");
+
+        ArgumentCaptor<MessageDraft> captor = ArgumentCaptor.forClass(MessageDraft.class);
+        verify(messageService).sendToReceivers(captor.capture(), eq(Collections.singletonList("U1")));
+        MessageDraft draft = captor.getValue();
+        assertEquals("QUOTATION_CONFIRMED", draft.getMessageType());
+        assertTrue(draft.getContent().contains("USD"));
     }
 
 }

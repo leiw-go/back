@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -176,4 +177,21 @@ class MessageServiceTests {
         verify(messageMapper, org.mockito.Mockito.never()).insertBatch(any());
         assertTrue(true);
     }
+
+    @Test
+    @DisplayName("判断某业务是否已发过系统消息")
+    void testExistsSystemMessage() {
+        when(messageMapper.countByBiz("ORDER", "O1", "ORDER_SHIPPED")).thenReturn(1);
+
+        assertTrue(messageService.existsSystemMessage("ORDER", "O1", "ORDER_SHIPPED"));
+    }
+
+    @Test
+    @DisplayName("参数不全时判定为未发过")
+    void testExistsSystemMessageWithBlankArguments() {
+        assertFalse(messageService.existsSystemMessage(null, "O1", "ORDER_SHIPPED"));
+        assertFalse(messageService.existsSystemMessage("ORDER", " ", "ORDER_SHIPPED"));
+        assertFalse(messageService.existsSystemMessage("ORDER", "O1", ""));
+    }
+
 }

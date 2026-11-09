@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.MessageMapper">
+
+    <sql id="BaseColumns">
+        id, message_type, level, title, content, sender_type, sender_id, receiver_id, biz_type,
+        biz_id, biz_title, is_read, read_at, create_time, update_time, deleted
+    </sql>
+
+    <insert id="insertBatch">
+        INSERT INTO t_message
+        (id, message_type, level, title, content, sender_type, sender_id, receiver_id, biz_type,
+         biz_id, biz_title, is_read, read_at, deleted)
+        VALUES
+        <foreach collection="messages" item="message" separator=",">
+            (#{message.id}, #{message.messageType}, #{message.level}, #{message.title}, #{message.content},
+             #{message.senderType}, #{message.senderId}, #{message.receiverId}, #{message.bizType},
+             #{message.bizId}, #{message.bizTitle}, #{message.isRead}, #{message.readAt}, 0)
+        </foreach>
+    </insert>
+
+    <select id="selectById" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.MessageEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_message
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectPage" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.MessageEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_message
+        WHERE deleted = 0
+          AND receiver_id = #{receiverId}
+        <if test="query.read != null">
+            AND is_read = #{query.read}
+        </if>
+        <if test="query.messageType != null and query.messageType != ''">
+            AND message_type = #{query.messageType}
+        </if>
+        <if test="query.level != null and query.level != ''">
+            AND level = #{query.level}
+        </if>
+        ORDER BY is_read ASC, create_time DESC
+    </select>
+
+    <update id="markRead">
+        UPDATE t_message
+        SET is_read = 1,
+            read_at = NOW()
+        WHERE id = #{messageId}
+          AND receiver_id = #{receiverId}
+          AND deleted = 0
+    </update>
+
+    <update id="markAllRead">
+        UPDATE t_message
+        SET is_read = 1,
+            read_at = NOW()
+        WHERE receiver_id = #{receiverId}
+          AND deleted = 0
+          AND is_read = 0
+        <if test="messageType != null and messageType != ''">
+            AND message_type = #{messageType}
+        </if>
+    </update>
+
+    <select id="countUnread" resultType="long">
+        SELECT COUNT(1)
+        FROM t_message
+        WHERE receiver_id = #{receiverId}
+          AND deleted = 0
+          AND is_read = 0
+    </select>
+
+    <update id="softDelete">
+        UPDATE t_message
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND receiver_id = #{receiverId}
+          AND deleted = 0
+    </update>
+
+    <update id="deleteReadBefore">
+        UPDATE t_message
+        SET deleted = #{deletedAt}
+        WHERE is_read = 1
+          AND deleted = 0
+          AND create_time &lt; #{cutoff}
+    </update>
+
+    <select id="countByBiz" resultType="int">
+        SELECT COUNT(1)
+        FROM t_message
+        WHERE biz_type = #{bizType}
+          AND biz_id = #{bizId}
+          AND message_type = #{messageType}
+          AND deleted = 0
+    </select>
+
+</mapper>

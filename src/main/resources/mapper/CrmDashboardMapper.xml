@@ -62,4 +62,91 @@
         GROUP BY c.source
     </select>
 
+    <!--
+      成交口径：订单已确认即视为成交（CONFIRMED / IN_PRODUCTION / SHIPPED / DELIVERED / COMPLETED），
+      只排除已取消（CANCELLED）。理由见 CrmDashboardServiceImpl 的类级 Javadoc。
+    -->
+    <sql id="DealOrderFilter">
+        deleted = 0
+        AND order_status &lt;&gt; 'CANCELLED'
+    </sql>
+
+    <select id="sumMonthDealAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount_base), 0)
+        FROM t_order
+        WHERE <include refid="DealOrderFilter"/>
+          AND YEAR(create_time) = YEAR(CURDATE())
+          AND MONTH(create_time) = MONTH(CURDATE())
+    </select>
+
+    <select id="sumDealAmountByPeriod"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardPeriodAggregateDto">
+        SELECT <include refid="PeriodExpr"/> AS period,
+               COALESCE(SUM(total_amount_base), 0) AS amount_base
+        FROM t_order
+        WHERE <include refid="DealOrderFilter"/>
+        GROUP BY period
+    </select>
+
+    <!--
+      未回款金额的本位币（USD）折算：t_receivable 上没有 *_base 列，
+      按所属订单的 total_amount_base / total_amount（订单创建时固化的汇率快照）推算；
+      订单原币金额为 0（无法推算汇率）时按 1:1 处理。
+    -->
+    <sql id="ReceivableBaseAmountExpr">
+        CASE WHEN o.total_amount IS NULL OR o.total_amount = 0
+                 THEN GREATEST(r.receivable_amount - r.received_amount, 0)
+                 ELSE GREATEST(r.receivable_amount - r.received_amount, 0)
+                          * o.total_amount_base / o.total_amount
+             END
+    </sql>
+
+    <!-- 未收齐（已收金额 < 应收金额）且状态不是 PAID 的应收 -->
+    <sql id="OutstandingReceivableFilter">
+        r.deleted = 0
+        AND (r.receivable_status IS NULL OR r.receivable_status &lt;&gt; 'PAID')
+        AND r.receivable_amount &gt; r.received_amount
+    </sql>
+
+    <select id="selectOutstandingReceivables"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmReceivableAgingRowDto">
+        SELECT r.due_date AS due_date,
+               <include refid="ReceivableBaseAmountExpr"/> AS amount_base
+        FROM t_receivable r
+                 JOIN t_order o ON o.id = r.order_id AND o.deleted = 0
+        WHERE <include refid="OutstandingReceivableFilter"/>
+    </select>
+
+    <select id="sumOverdueReceivableAmountBase" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(<include refid="ReceivableBaseAmountExpr"/>), 0)
+        FROM t_receivable r
+                 JOIN t_order o ON o.id = r.order_id AND o.deleted = 0
+        WHERE <include refid="OutstandingReceivableFilter"/>
+          AND r.due_date IS NOT NULL
+          AND r.due_date &lt; CURDATE()
+    </select>
+
+    <select id="sumTopProducts"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardTopProductDto">
+        SELECT MIN(i.product_id) AS product_id,
+               COALESCE(p.product_name, MAX(i.product_name)) AS product_name,
+               p.product_code AS product_code,
+               COALESCE(SUM(CASE WHEN o.total_amount IS NULL OR o.total_amount = 0
+                                 THEN i.amount
+                                 ELSE i.amount * o.total_amount_base / o.total_amount
+                            END), 0) AS deal_amount_base,
+               COALESCE(SUM(i.quantity), 0) AS deal_quantity,
+               COUNT(DISTINCT i.order_id) AS order_count
+        FROM t_order_item i
+                 JOIN t_order o ON o.id = i.order_id AND o.deleted = 0
+                 LEFT JOIN t_crm_product p ON p.id = i.product_id AND p.deleted = 0
+        WHERE i.deleted = 0
+          AND o.order_status &lt;&gt; 'CANCELLED'
+        GROUP BY COALESCE(i.product_id, CONCAT('#', i.product_name)),
+                 p.product_code,
+                 p.product_name
+        ORDER BY deal_amount_base DESC, deal_quantity DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

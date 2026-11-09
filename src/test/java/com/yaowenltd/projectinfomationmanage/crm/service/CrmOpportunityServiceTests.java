@@ -4,6 +4,7 @@
 
 package com.yaowenltd.projectinfomationmanage.crm.service;
 
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageNotifier;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOpportunityMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerMapper;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.opportunity.CrmOpportunityDto;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.message.MessageDraft;
 
 /**
  * {@link CrmOpportunityService} 的单元测试。
@@ -61,12 +63,15 @@ class CrmOpportunityServiceTests {
     @Mock
     private CurrencyRateQueryService currencyRateQueryService;
 
+    @Mock
+    private MessageService messageService;
+
     private CrmOpportunityService crmOpportunityService;
 
     @BeforeEach
     void setUp() {
         crmOpportunityService = new CrmOpportunityServiceImpl(opportunityMapper, customerMapper,
-                new OpportunityStageServiceImpl(), currencyRateQueryService);
+                new OpportunityStageServiceImpl(), currencyRateQueryService, new MessageNotifier(messageService));
     }
 
     private static CrmOpportunityRequest request() {
@@ -386,6 +391,22 @@ class CrmOpportunityServiceTests {
         dto.setStageCount(count);
         dto.setAmountBase(new BigDecimal(amountBase));
         return dto;
+    }
+
+    @Test
+    @DisplayName("商机阶段变更后给负责人发站内信")
+    void testChangeStageSendsOpportunityStageMessage() {
+        when(opportunityMapper.selectById("O1")).thenReturn(existing("INITIAL_CONTACT"));
+        CrmOpportunityStageRequest request = new CrmOpportunityStageRequest();
+        request.setStage("QUALIFIED");
+
+        crmOpportunityService.changeStage("O1", request);
+
+        ArgumentCaptor<MessageDraft> captor = ArgumentCaptor.forClass(MessageDraft.class);
+        verify(messageService).sendToReceivers(captor.capture(), eq(Collections.singletonList("U1")));
+        MessageDraft draft = captor.getValue();
+        assertEquals("OPPORTUNITY_STAGE", draft.getMessageType());
+        assertTrue(draft.getContent().contains("QUALIFIED"));
     }
 
 }

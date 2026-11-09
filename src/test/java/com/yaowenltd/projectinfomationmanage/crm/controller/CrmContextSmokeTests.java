@@ -8,6 +8,16 @@ import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmAccessMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmDashboardMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmInquiryMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOpportunityMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOrderItemMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOrderMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmReceivableMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailTemplateMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailCampaignMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailLogMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencyMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencySyncLogMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencyRateCheckMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmShipmentMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmProductMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationItemMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationMapper;
@@ -116,6 +126,36 @@ class CrmContextSmokeTests {
 
     @MockBean
     private CrmQuotationItemMapper crmQuotationItemMapper;
+
+    @MockBean
+    private CrmOrderMapper crmOrderMapper;
+
+    @MockBean
+    private CrmOrderItemMapper crmOrderItemMapper;
+
+    @MockBean
+    private CrmShipmentMapper crmShipmentMapper;
+
+    @MockBean
+    private CrmReceivableMapper crmReceivableMapper;
+
+    @MockBean
+    private CrmEmailTemplateMapper crmEmailTemplateMapper;
+
+    @MockBean
+    private CrmEmailCampaignMapper crmEmailCampaignMapper;
+
+    @MockBean
+    private CrmEmailLogMapper crmEmailLogMapper;
+
+    @MockBean
+    private CurrencyMapper currencyMapper;
+
+    @MockBean
+    private CurrencySyncLogMapper currencySyncLogMapper;
+
+    @MockBean
+    private CurrencyRateCheckMapper currencyRateCheckMapper;
 
     @Autowired
     private QuotationPricingService quotationPricingService;

@@ -15,6 +15,9 @@ import com.yaowenltd.projectinfomationmanage.crm.model.dto.opportunity.CrmOpport
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.opportunity.CrmOpportunityStageCountDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.opportunity.CrmOpportunityStageRequest;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmOpportunityEntity;
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageNotifier;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageBizType;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageType;
 import com.yaowenltd.projectinfomationmanage.crm.model.enums.OpportunityStage;
 import com.yaowenltd.projectinfomationmanage.crm.service.CrmOpportunityService;
 import com.yaowenltd.projectinfomationmanage.crm.service.CurrencyRateQueryService;
@@ -60,6 +63,7 @@ public class CrmOpportunityServiceImpl implements CrmOpportunityService {
     private final CustomerMapper customerMapper;
     private final OpportunityStageService opportunityStageService;
     private final CurrencyRateQueryService currencyRateQueryService;
+    private final MessageNotifier messageNotifier;
 
     /**
      * 使用指定依赖构造 CrmOpportunityServiceImpl.
@@ -72,11 +76,13 @@ public class CrmOpportunityServiceImpl implements CrmOpportunityService {
     public CrmOpportunityServiceImpl(CrmOpportunityMapper opportunityMapper,
                                      CustomerMapper customerMapper,
                                      OpportunityStageService opportunityStageService,
-                                     CurrencyRateQueryService currencyRateQueryService) {
+                                     CurrencyRateQueryService currencyRateQueryService,
+                                     MessageNotifier messageNotifier) {
         this.opportunityMapper = opportunityMapper;
         this.customerMapper = customerMapper;
         this.opportunityStageService = opportunityStageService;
         this.currencyRateQueryService = currencyRateQueryService;
+        this.messageNotifier = messageNotifier;
     }
 
     @Override
@@ -120,6 +126,9 @@ public class CrmOpportunityServiceImpl implements CrmOpportunityService {
         }
         existing.setAmountBase(snapshotBaseAmount(existing.getAmount(), existing.getCurrencyCode()));
         opportunityMapper.update(existing);
+        if (target != current) {
+            notifyStageChanged(existing, target);
+        }
         return toDto(existing);
     }
 
@@ -178,6 +187,7 @@ public class CrmOpportunityServiceImpl implements CrmOpportunityService {
             existing.setLostReason(request.getLostReason().trim());
         }
         opportunityMapper.update(existing);
+        notifyStageChanged(existing, target);
         return toDto(existing);
     }
 
@@ -332,4 +342,19 @@ public class CrmOpportunityServiceImpl implements CrmOpportunityService {
         return dto;
     }
 
+    /**
+     * 商机阶段变更后发站内信（需求文档 §3.11 的"商机阶段变更"）.
+     * <p>
+     * 站内信是旁路，发送失败只记日志，不影响阶段流转.
+     * </p>
+     *
+     * @param opportunity 商机
+     * @param target      新阶段
+     */
+    private void notifyStageChanged(CrmOpportunityEntity opportunity, OpportunityStage target) {
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("stage", target.name());
+        messageNotifier.notifyOwner(MessageType.OPPORTUNITY_STAGE, MessageBizType.OPPORTUNITY.name(),
+                opportunity.getId(), opportunity.getName(), opportunity.getOwnerId(), placeholders);
+    }
 }

@@ -62,4 +62,12 @@ public interface UserMapper {
      * @return 用户列表
      */
     List<User> findAllUsers();
+
+    /**
+     * 按用户名查询用户.
+     *
+     * @param username 用户名
+     * @return 用户；不存在返回 null
+     */
+    User selectByUsername(@Param("username") String username);
 }

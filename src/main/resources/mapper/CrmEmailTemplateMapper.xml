@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailTemplateMapper">
+
+    <sql id="BaseColumns">
+        id, name, subject, content, language, template_type, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailTemplateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_email_template
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByName"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailTemplateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_email_template
+        WHERE name = #{name}
+          AND deleted = 0
+        <if test="excludeId != null and excludeId != ''">
+            AND id != #{excludeId}
+        </if>
+        LIMIT 1
+    </select>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailTemplateEntity">
+        INSERT INTO t_email_template
+        (id, name, subject, content, language, template_type, deleted)
+        VALUES
+        (#{id}, #{name}, #{subject}, #{content}, #{language}, #{templateType}, #{deleted})
+    </insert>
+
+    <update id="update"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailTemplateEntity">
+        UPDATE t_email_template
+        SET name          = #{name},
+            subject       = #{subject},
+            content       = #{content},
+            language      = #{language},
+            template_type = #{templateType}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE t_email_template
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="selectAll"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailTemplateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_email_template
+        WHERE deleted = 0
+        ORDER BY update_time DESC
+    </select>
+
+</mapper>

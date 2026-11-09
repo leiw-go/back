@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencySyncLogMapper">
+
+    <sql id="BaseColumns">
+        id, trigger_type, primary_status, primary_rows, primary_date, secondary_status,
+        secondary_rows, secondary_date, compared_count, matched_count, warned_count, rejected_count,
+        single_count, saved_count, skipped_count, max_deviation, max_deviation_currency, sync_status, error_msg,
+        duration_ms, started_at, finished_at, create_time
+    </sql>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencySyncLogEntity">
+        INSERT INTO t_currency_sync_log
+        (id, trigger_type, primary_status, primary_rows, primary_date, secondary_status,
+         secondary_rows, secondary_date, compared_count, matched_count, warned_count, rejected_count,
+         single_count, saved_count, skipped_count, max_deviation, max_deviation_currency, sync_status, error_msg,
+         duration_ms, started_at, finished_at)
+        VALUES
+        (#{id}, #{triggerType}, #{primaryStatus}, #{primaryRows}, #{primaryDate}, #{secondaryStatus},
+         #{secondaryRows}, #{secondaryDate}, #{comparedCount}, #{matchedCount}, #{warnedCount},
+         #{rejectedCount}, #{singleCount}, #{savedCount}, #{skippedCount}, #{maxDeviation},
+         #{maxDeviationCurrency},
+         #{syncStatus}, #{errorMsg}, #{durationMs}, #{startedAt}, #{finishedAt})
+    </insert>
+
+    <select id="selectLatest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencySyncLogEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_sync_log
+        ORDER BY started_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectById"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencySyncLogEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_sync_log
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+</mapper>

@@ -36,6 +36,15 @@ public class CrmDashboardTrendDto {
     private BigDecimal newOpportunityAmountBase = BigDecimal.ZERO;
 
     /**
+     * 该期间的成交额（订单 {@code t_order.total_amount_base} 合计，本位币 USD）.
+     * <p>
+     * 成交口径 = 订单已确认即视为成交（{@code CONFIRMED / IN_PRODUCTION / SHIPPED /
+     * DELIVERED / COMPLETED}），排除已取消（{@code CANCELLED}）；按订单创建时间归期。
+     * </p>
+     */
+    private BigDecimal dealAmountBase = BigDecimal.ZERO;
+
+    /**
      * 该期间新增商机的赢单率（%）：当期新增且已决（WON + LOST）的商机里赢单占比；
      * 分母为 0 时取 0.
      */

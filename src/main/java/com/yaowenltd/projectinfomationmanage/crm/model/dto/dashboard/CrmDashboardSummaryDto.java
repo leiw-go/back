@@ -16,12 +16,16 @@ import lombok.Data;
 public class CrmDashboardSummaryDto {
 
     /**
-     * 本月成交额（订单域在 M4 落地后才有数据，此前恒为 0）.
+     * 本月成交额（订单 {@code t_order.total_amount_base} 合计，本位币 USD）.
+     * <p>
+     * 成交口径 = 订单已确认即视为成交（{@code CONFIRMED / IN_PRODUCTION / SHIPPED /
+     * DELIVERED / COMPLETED}），排除已取消（{@code CANCELLED}）；按订单创建时间归月。
+     * </p>
      */
     private BigDecimal monthDealAmount = BigDecimal.ZERO;
 
     /**
-     * 逾期应收金额（订单域在 M4 落地后才有数据，此前恒为 0）.
+     * 逾期应收金额（本位币 USD）：约定收款日早于今天、且尚未收齐的应收金额合计.
      */
     private BigDecimal overdueReceivableAmount = BigDecimal.ZERO;
 

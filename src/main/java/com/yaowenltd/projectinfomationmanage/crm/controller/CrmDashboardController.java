@@ -6,7 +6,9 @@ package com.yaowenltd.projectinfomationmanage.crm.controller;
 
 import com.yaowenltd.projectinfomationmanage.common.ResponseResult;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardCustomerSourceDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardReceivableAgingDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardSummaryDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardTopProductDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.dashboard.CrmDashboardTrendDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.opportunity.CrmOpportunityPipelineDto;
 import com.yaowenltd.projectinfomationmanage.crm.service.CrmDashboardService;
@@ -85,6 +87,30 @@ public class CrmDashboardController {
     @Operation(summary = "Dashboard customer source", description = "客户来源分布")
     public ResponseResult<List<CrmDashboardCustomerSourceDto>> customerSource() {
         return ResponseResult.success(crmDashboardService.customerSource());
+    }
+
+    /**
+     * 应收账龄.
+     *
+     * @return 账龄分桶（0-30 / 31-60 / 61-90 / 90+ 天）
+     */
+    @GetMapping("/receivable-aging")
+    @Operation(summary = "Dashboard receivable aging", description = "应收账龄（未回款金额按到期日分桶）")
+    public ResponseResult<CrmDashboardReceivableAgingDto> receivableAging() {
+        return ResponseResult.success(crmDashboardService.receivableAging());
+    }
+
+    /**
+     * 产品成交排行.
+     *
+     * @param limit 取前 N 名；为空时取 10，取值范围 1 ~ 50，越界报 400
+     * @return 按成交金额倒序的产品列表
+     */
+    @GetMapping("/top-products")
+    @Operation(summary = "Dashboard top products", description = "产品成交排行（按成交金额）")
+    public ResponseResult<List<CrmDashboardTopProductDto>> topProducts(
+            @RequestParam(required = false) Integer limit) {
+        return ResponseResult.success(crmDashboardService.topProducts(limit));
     }
 
 }

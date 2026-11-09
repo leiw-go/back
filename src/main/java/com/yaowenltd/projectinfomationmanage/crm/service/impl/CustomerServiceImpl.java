@@ -12,12 +12,16 @@ import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerContactMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerTagRelMapper;
 import com.yaowenltd.projectinfomationmanage.crm.service.CustomerService;
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageNotifier;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageBizType;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageType;
 import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -43,6 +47,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerContactMapper customerContactMapper;
     private final CustomerTagRelMapper customerTagRelMapper;
     private final CrmOpportunityMapper opportunityMapper;
+    private final MessageNotifier messageNotifier;
 
     /**
      * 使用指定的 Mapper 构造 CustomerServiceImpl.
@@ -55,11 +60,13 @@ public class CustomerServiceImpl implements CustomerService {
     public CustomerServiceImpl(CustomerMapper customerMapper,
                                CustomerContactMapper customerContactMapper,
                                CustomerTagRelMapper customerTagRelMapper,
-                               CrmOpportunityMapper opportunityMapper) {
+                               CrmOpportunityMapper opportunityMapper,
+                               MessageNotifier messageNotifier) {
         this.customerMapper = customerMapper;
         this.customerContactMapper = customerContactMapper;
         this.customerTagRelMapper = customerTagRelMapper;
         this.opportunityMapper = opportunityMapper;
+        this.messageNotifier = messageNotifier;
     }
 
     @Override
@@ -123,6 +130,8 @@ public class CustomerServiceImpl implements CustomerService {
         }
         existing.setOwnerId(newOwnerId);
         customerMapper.update(existing);
+        messageNotifier.notifyOwner(MessageType.CUSTOMER_ASSIGNED, MessageBizType.CUSTOMER.name(),
+                existing.getId(), existing.getCompanyName(), newOwnerId, new HashMap<>());
         return toDto(existing);
     }
 

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencyMapper">
+
+    <sql id="BaseColumns">
+        id, currency_code, currency_name, symbol, numeric_code, is_common, currency_level, status,
+        suspect_days, recover_days, create_time, update_time
+    </sql>
+
+    <select id="selectAll"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency
+        ORDER BY is_common DESC, currency_code ASC
+    </select>
+
+    <select id="selectByCode"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency
+        WHERE currency_code = #{currencyCode}
+        LIMIT 1
+    </select>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyEntity">
+        INSERT INTO t_currency
+        (id, currency_code, currency_name, symbol, numeric_code, is_common, currency_level, status,
+         suspect_days, recover_days)
+        VALUES
+        (#{id}, #{currencyCode}, #{currencyName}, #{symbol}, #{numericCode}, #{isCommon},
+         #{currencyLevel}, #{status}, #{suspectDays}, #{recoverDays})
+    </insert>
+
+    <update id="update"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyEntity">
+        UPDATE t_currency
+        SET currency_name   = #{currencyName},
+            symbol          = #{symbol},
+            numeric_code    = #{numericCode},
+            is_common       = #{isCommon},
+            currency_level  = #{currencyLevel},
+            status          = #{status},
+            suspect_days    = #{suspectDays},
+            recover_days    = #{recoverDays}
+        WHERE currency_code = #{currencyCode}
+    </update>
+
+</mapper>

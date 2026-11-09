@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailCampaignMapper">
+
+    <sql id="BaseColumns">
+        id, name, template_id, target_type, target_value, campaign_status, total_count,
+        success_count, fail_count, sent_at, owner_id, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailCampaignEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_email_campaign
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailCampaignEntity">
+        INSERT INTO t_email_campaign
+        (id, name, template_id, target_type, target_value, campaign_status, total_count,
+         success_count, fail_count, sent_at, owner_id, deleted)
+        VALUES
+        (#{id}, #{name}, #{templateId}, #{targetType}, #{targetValue}, #{campaignStatus},
+         #{totalCount}, #{successCount}, #{failCount}, #{sentAt}, #{ownerId}, #{deleted})
+    </insert>
+
+    <update id="update"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailCampaignEntity">
+        UPDATE t_email_campaign
+        SET name            = #{name},
+            template_id     = #{templateId},
+            target_type     = #{targetType},
+            target_value    = #{targetValue},
+            campaign_status = #{campaignStatus},
+            total_count     = #{totalCount},
+            success_count   = #{successCount},
+            fail_count      = #{failCount},
+            sent_at         = #{sentAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="selectPage"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailCampaignEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_email_campaign
+        WHERE deleted = 0
+        <if test="ownerId != null and ownerId != ''">
+            AND owner_id = #{ownerId}
+        </if>
+        <if test="status != null and status != ''">
+            AND campaign_status = #{status}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

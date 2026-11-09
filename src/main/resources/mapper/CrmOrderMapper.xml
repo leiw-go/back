@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOrderMapper">
+
+    <sql id="BaseColumns">
+        id, order_no, customer_id, quotation_id, opportunity_id, currency_code, total_amount,
+        total_amount_base, incoterm, payment_term, deposit_rate, order_status, ship_date,
+        expect_arrive_date, owner_id, remark, create_time, update_time, deleted
+    </sql>
+
+    <select id="selectById" resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmOrderEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_order
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <insert id="insert" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmOrderEntity">
+        INSERT INTO t_order
+        (id, order_no, customer_id, quotation_id, opportunity_id, currency_code, total_amount,
+         total_amount_base, incoterm, payment_term, deposit_rate, order_status, ship_date,
+         expect_arrive_date, owner_id, remark, deleted)
+        VALUES
+        (#{id}, #{orderNo}, #{customerId}, #{quotationId}, #{opportunityId}, #{currencyCode},
+         #{totalAmount}, #{totalAmountBase}, #{incoterm}, #{paymentTerm}, #{depositRate},
+         #{orderStatus}, #{shipDate}, #{expectArriveDate}, #{ownerId}, #{remark}, #{deleted})
+    </insert>
+
+    <update id="update" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmOrderEntity">
+        UPDATE t_order
+        SET customer_id        = #{customerId},
+            quotation_id       = #{quotationId},
+            opportunity_id     = #{opportunityId},
+            currency_code      = #{currencyCode},
+            total_amount       = #{totalAmount},
+            total_amount_base  = #{totalAmountBase},
+            incoterm           = #{incoterm},
+            payment_term       = #{paymentTerm},
+            deposit_rate       = #{depositRate},
+            order_status       = #{orderStatus},
+            ship_date          = #{shipDate},
+            expect_arrive_date = #{expectArriveDate},
+            owner_id           = #{ownerId},
+            remark             = #{remark}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE t_order
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <select id="selectPage" parameterType="com.yaowenltd.projectinfomationmanage.crm.model.dto.order.CrmOrderQueryRequest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmOrderEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_order
+        <include refid="QueryWhere"/>
+        ORDER BY create_time DESC
+    </select>
+
+    <sql id="QueryWhere">
+        <where>
+            deleted = 0
+            <if test="orderStatus != null and orderStatus != ''">
+                AND order_status = #{orderStatus}
+            </if>
+            <if test="customerId != null and customerId != ''">
+                AND customer_id = #{customerId}
+            </if>
+            <if test="ownerId != null and ownerId != ''">
+                AND owner_id = #{ownerId}
+            </if>
+            <if test="shipDateFrom != null">
+                AND ship_date &gt;= #{shipDateFrom}
+            </if>
+            <if test="shipDateTo != null">
+                AND ship_date &lt;= #{shipDateTo}
+            </if>
+        </where>
+    </sql>
+
+</mapper>

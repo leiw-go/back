@@ -5,8 +5,10 @@
 package com.yaowenltd.projectinfomationmanage.crm.service;
 
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.customer.CustomerDto;
+import java.util.Collections;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.customer.CustomerRequest;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.CustomerEntity;
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageNotifier;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOpportunityMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerContactMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerMapper;
@@ -29,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.message.MessageDraft;
 
 /**
  * {@link CustomerService} 的单元测试。
@@ -53,12 +56,15 @@ class CustomerServiceTests {
     @Mock
     private CrmOpportunityMapper opportunityMapper;
 
+    @Mock
+    private MessageService messageService;
+
     private CustomerService customerService;
 
     @BeforeEach
     void setUp() {
         customerService = new CustomerServiceImpl(customerMapper, customerContactMapper,
-                customerTagRelMapper, opportunityMapper);
+                customerTagRelMapper, opportunityMapper, new MessageNotifier(messageService));
     }
 
     private static CustomerRequest request() {
@@ -268,4 +274,19 @@ class CustomerServiceTests {
         assertEquals("C1", rows.get(0).getId());
         assertTrue(rows.size() <= 10000, "export must not exceed the 10000 row limit");
     }
+
+    @Test
+    @DisplayName("客户转交后给新负责人发站内信")
+    void testTransferSendsCustomerAssignedMessage() {
+        when(customerMapper.selectById("C1")).thenReturn(existing());
+
+        customerService.transfer("C1", "U2");
+
+        ArgumentCaptor<MessageDraft> captor = ArgumentCaptor.forClass(MessageDraft.class);
+        verify(messageService).sendToReceivers(captor.capture(), eq(Collections.singletonList("U2")));
+        MessageDraft draft = captor.getValue();
+        assertEquals("CUSTOMER_ASSIGNED", draft.getMessageType());
+        assertEquals("CUSTOMER", draft.getBizType());
+    }
+
 }

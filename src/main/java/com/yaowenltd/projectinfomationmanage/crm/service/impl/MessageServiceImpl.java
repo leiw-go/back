@@ -4,12 +4,19 @@
 
 package com.yaowenltd.projectinfomationmanage.crm.service.impl;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.MessageMapper;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.message.MessageDraft;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.message.MessageDto;
+import com.yaowenltd.projectinfomationmanage.crm.model.dto.message.MessageQueryRequest;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.MessageEntity;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageType;
 import com.yaowenltd.projectinfomationmanage.crm.service.MessageService;
+import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +37,15 @@ public class MessageServiceImpl implements MessageService {
 
     /** 发送方类型：用户. */
     private static final String SENDER_TYPE_USER = "USER";
+
+    /** 列表默认每页条数. */
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
+    /** 列表最大每页条数. */
+    private static final int MAX_PAGE_SIZE = 200;
+
+    /** 单次查询允许的最大偏移量. */
+    private static final int MAX_PAGE_OFFSET = 10000;
 
     private final MessageMapper messageMapper;
 
@@ -104,5 +120,114 @@ public class MessageServiceImpl implements MessageService {
             throw new IllegalArgumentException("receiverId must not be null");
         }
         return messageMapper.countUnread(receiverId);
+    }
+
+    @Override
+    public PageResponse<MessageDto> list(String receiverId, MessageQueryRequest query) {
+        if (receiverId == null || receiverId.trim().isEmpty()) {
+            throw new IllegalArgumentException("receiverId must not be blank");
+        }
+        MessageQueryRequest actual = query == null ? new MessageQueryRequest() : query;
+        int page = actual.getPage() == null || actual.getPage() < 1 ? 1 : actual.getPage();
+        int size = actual.getSize() == null || actual.getSize() < 1
+                ? DEFAULT_PAGE_SIZE : Math.min(actual.getSize(), MAX_PAGE_SIZE);
+        if ((long) page * size > MAX_PAGE_OFFSET) {
+            throw new IllegalArgumentException("page * size must not exceed " + MAX_PAGE_OFFSET);
+        }
+        PageHelper.startPage(page, size);
+        try {
+            PageInfo<MessageEntity> info =
+                    new PageInfo<>(messageMapper.selectPage(receiverId, actual));
+            List<MessageDto> rows = new ArrayList<>(info.getList().size());
+            for (MessageEntity entity : info.getList()) {
+                rows.add(toDto(entity));
+            }
+            PageResponse<MessageDto> response = new PageResponse<>();
+            response.setData(rows);
+            response.setTotal(info.getTotal());
+            response.setPage(info.getPageNum());
+            response.setSize(info.getPageSize());
+            return response;
+        } finally {
+            PageHelper.clearPage();
+        }
+    }
+
+    @Override
+    public MessageDto getById(String messageId, String receiverId) {
+        if (messageId == null || messageId.trim().isEmpty()) {
+            throw new IllegalArgumentException("messageId must not be blank");
+        }
+        MessageEntity entity = messageMapper.selectById(messageId);
+        if (entity == null || !receiverId.equals(entity.getReceiverId())) {
+            throw new IllegalArgumentException("message not found: " + messageId);
+        }
+        if (entity.getIsRead() == 0) {
+            messageMapper.markRead(messageId, receiverId);
+            entity.setIsRead(1);
+        }
+        return toDto(entity);
+    }
+
+    @Override
+    public void delete(String messageId, String receiverId) {
+        if (messageId == null || messageId.trim().isEmpty()) {
+            throw new IllegalArgumentException("messageId must not be blank");
+        }
+        messageMapper.softDelete(messageId, receiverId, System.currentTimeMillis());
+    }
+
+    @Override
+    public int sendManual(String receiverId, String title, String content, String senderId) {
+        if (receiverId == null || receiverId.trim().isEmpty()) {
+            throw new IllegalArgumentException("receiverId must not be blank");
+        }
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
+        MessageDraft draft = new MessageDraft();
+        draft.setMessageType(MessageType.MANUAL.name());
+        draft.setLevel(MessageType.MANUAL.getDefaultLevel().name());
+        draft.setTitle(title.trim());
+        draft.setContent(content);
+        return sendToReceivers(draft, java.util.Collections.singletonList(receiverId.trim()), senderId);
+    }
+
+    @Override
+    public int cleanupReadMessages(int retentionDays) {
+        if (retentionDays < 1) {
+            throw new IllegalArgumentException("retentionDays must be positive");
+        }
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
+        return messageMapper.deleteReadBefore(cutoff, System.currentTimeMillis());
+    }
+
+    @Override
+    public boolean existsSystemMessage(String bizType, String bizId, String messageType) {
+        if (bizType == null || bizType.trim().isEmpty()
+                || bizId == null || bizId.trim().isEmpty()
+                || messageType == null || messageType.trim().isEmpty()) {
+            return false;
+        }
+        return messageMapper.countByBiz(bizType.trim(), bizId.trim(), messageType.trim()) > 0;
+    }
+
+    private MessageDto toDto(MessageEntity entity) {
+        MessageDto dto = new MessageDto();
+        dto.setId(entity.getId());
+        dto.setMessageType(entity.getMessageType());
+        dto.setLevel(entity.getLevel());
+        dto.setTitle(entity.getTitle());
+        dto.setContent(entity.getContent());
+        dto.setSenderType(entity.getSenderType());
+        dto.setSenderId(entity.getSenderId());
+        dto.setReceiverId(entity.getReceiverId());
+        dto.setBizType(entity.getBizType());
+        dto.setBizId(entity.getBizId());
+        dto.setBizTitle(entity.getBizTitle());
+        dto.setRead(entity.getIsRead() == 1);
+        dto.setReadAt(entity.getReadAt());
+        dto.setCreateTime(entity.getCreateTime());
+        return dto;
     }
 }

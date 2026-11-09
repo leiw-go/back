@@ -12,6 +12,8 @@ import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmProductMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationItemMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmQuotationMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CustomerMapper;
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageNotifier;
+import com.yaowenltd.projectinfomationmanage.crm.common.MessageTextFactory;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.pricing.PricedItem;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.pricing.PricingItemRequest;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.pricing.ProductPricingInfo;
@@ -26,6 +28,8 @@ import com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmInquiryEntity;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmProductEntity;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmQuotationEntity;
 import com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmQuotationItemEntity;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageBizType;
+import com.yaowenltd.projectinfomationmanage.crm.model.enums.MessageType;
 import com.yaowenltd.projectinfomationmanage.crm.model.enums.QuotationStatus;
 import com.yaowenltd.projectinfomationmanage.crm.service.CrmQuotationService;
 import com.yaowenltd.projectinfomationmanage.crm.service.CurrencyRateQueryService;
@@ -34,14 +38,18 @@ import com.yaowenltd.projectinfomationmanage.crm.service.QuotationStatusService;
 import com.yaowenltd.projectinfomationmanage.model.dto.PageResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -52,6 +60,8 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @Service
 public class CrmQuotationServiceImpl implements CrmQuotationService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrmQuotationServiceImpl.class);
 
     /** 列表默认每页条数. */
     private static final int DEFAULT_PAGE_SIZE = 20;
@@ -83,6 +93,7 @@ public class CrmQuotationServiceImpl implements CrmQuotationService {
     private final QuotationPricingService quotationPricingService;
     private final QuotationStatusService quotationStatusService;
     private final CurrencyRateQueryService currencyRateQueryService;
+    private final MessageNotifier messageNotifier;
 
     /**
      * 使用指定依赖构造 CrmQuotationServiceImpl.
@@ -96,6 +107,7 @@ public class CrmQuotationServiceImpl implements CrmQuotationService {
      * @param quotationPricingService  算价引擎
      * @param quotationStatusService   报价单状态机
      * @param currencyRateQueryService 汇率折算服务
+     * @param messageNotifier          站内信通知器（业务事件触发）
      */
     public CrmQuotationServiceImpl(CrmQuotationMapper quotationMapper,
                                    CrmQuotationItemMapper quotationItemMapper,
@@ -105,7 +117,8 @@ public class CrmQuotationServiceImpl implements CrmQuotationService {
                                    CustomerMapper customerMapper,
                                    QuotationPricingService quotationPricingService,
                                    QuotationStatusService quotationStatusService,
-                                   CurrencyRateQueryService currencyRateQueryService) {
+                                   CurrencyRateQueryService currencyRateQueryService,
+                                   MessageNotifier messageNotifier) {
         this.quotationMapper = quotationMapper;
         this.quotationItemMapper = quotationItemMapper;
         this.inquiryMapper = inquiryMapper;
@@ -115,6 +128,7 @@ public class CrmQuotationServiceImpl implements CrmQuotationService {
         this.quotationPricingService = quotationPricingService;
         this.quotationStatusService = quotationStatusService;
         this.currencyRateQueryService = currencyRateQueryService;
+        this.messageNotifier = messageNotifier;
     }
 
     @Override
@@ -290,7 +304,41 @@ public class CrmQuotationServiceImpl implements CrmQuotationService {
             existing.setRejectReason(rejectReason.trim());
         }
         quotationMapper.update(existing);
+        notifyStatusEvent(existing, target, rejectReason);
         return toDto(existing, quotationItemMapper.selectByQuotationId(id));
+    }
+
+    /**
+     * 报价状态流转后发站内信（需求文档 §3.11）：报价被拒绝 / 报价被确认.
+     * <p>
+     * 发消息失败只记日志，不影响报价状态流转本身.
+     * </p>
+     */
+    private void notifyStatusEvent(CrmQuotationEntity quotation, QuotationStatus target, String rejectReason) {
+        if (target == QuotationStatus.REJECTED) {
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("reason", rejectReason == null ? "" : rejectReason);
+            notifyOwner(MessageType.QUOTATION_REJECTED, quotation, placeholders);
+            return;
+        }
+        if (target == QuotationStatus.CONFIRMED) {
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("amount", MessageTextFactory.money(
+                    quotation.getTotalAmount(), quotation.getCurrencyCode()));
+            notifyOwner(MessageType.QUOTATION_CONFIRMED, quotation, placeholders);
+        }
+    }
+
+    /**
+     * 给报价负责人发一条业务事件站内信.
+     * <p>
+     * 收件人缺失（历史数据没有负责人）或发送失败时只记日志并跳过，不抛异常.
+     * </p>
+     */
+    private void notifyOwner(MessageType type, CrmQuotationEntity quotation,
+                             Map<String, String> placeholders) {
+        messageNotifier.notifyOwner(type, MessageBizType.QUOTATION.name(), quotation.getId(),
+                quotation.getQuotationNo(), quotation.getOwnerId(), placeholders);
     }
 
     @Transactional(rollbackFor = Exception.class)

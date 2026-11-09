@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencyRateMapper">
+
+    <sql id="BaseColumns">
+        id, base_currency, quote_currency, rate, rate_date, source, cross_source, cross_status,
+        deviation_rate, date_gap_days, checked_at, create_time, update_time
+    </sql>
+
+    <select id="selectLatestRateOnOrBefore" resultType="bigdecimal">
+        SELECT rate
+        FROM t_currency_rate
+        WHERE base_currency = #{baseCurrency}
+          AND quote_currency = #{quoteCurrency}
+          AND rate_date &lt;= #{date}
+        ORDER BY rate_date DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectByPairDate"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_rate
+        WHERE base_currency = #{baseCurrency}
+          AND quote_currency = #{quoteCurrency}
+          AND rate_date = #{date}
+        LIMIT 1
+    </select>
+
+    <select id="selectLatest"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_rate
+        WHERE base_currency = #{baseCurrency}
+          AND quote_currency = #{quoteCurrency}
+        ORDER BY rate_date DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectPrevious"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_rate
+        WHERE base_currency = #{baseCurrency}
+          AND quote_currency = #{quoteCurrency}
+          AND rate_date &lt; #{date}
+        ORDER BY rate_date DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectRates"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_rate
+        <where>
+            <if test="baseCurrency != null and baseCurrency != ''">
+                AND base_currency = #{baseCurrency}
+            </if>
+            <if test="quoteCurrency != null and quoteCurrency != ''">
+                AND quote_currency = #{quoteCurrency}
+            </if>
+            <if test="date != null">
+                AND rate_date = #{date}
+            </if>
+            <if test="source != null and source != ''">
+                AND source = #{source}
+            </if>
+        </where>
+        ORDER BY quote_currency ASC, rate_date DESC
+        LIMIT 5000
+    </select>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateEntity">
+        INSERT INTO t_currency_rate
+        (id, base_currency, quote_currency, rate, rate_date, source, cross_source, cross_status,
+         deviation_rate, date_gap_days, checked_at)
+        VALUES
+        (#{id}, #{baseCurrency}, #{quoteCurrency}, #{rate}, #{rateDate}, #{source}, #{crossSource},
+         #{crossStatus}, #{deviationRate}, #{dateGapDays}, #{checkedAt})
+        ON DUPLICATE KEY UPDATE
+        rate          = VALUES(rate),
+        source        = VALUES(source),
+        cross_source  = VALUES(cross_source),
+        cross_status  = VALUES(cross_status),
+        deviation_rate = VALUES(deviation_rate),
+        date_gap_days = VALUES(date_gap_days),
+        checked_at    = VALUES(checked_at)
+    </insert>
+
+</mapper>

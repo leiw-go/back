@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CurrencyRateCheckMapper">
+
+    <sql id="BaseColumns">
+        id, sync_id, base_currency, quote_currency, primary_rate, primary_date, secondary_rate,
+        secondary_date, deviation_rate, date_gap_days, threshold, check_result, reject_reason,
+        checked_at, create_time
+    </sql>
+
+    <insert id="insertBatch">
+        INSERT INTO t_currency_rate_check
+        (id, sync_id, base_currency, quote_currency, primary_rate, primary_date, secondary_rate,
+         secondary_date, deviation_rate, date_gap_days, threshold, check_result, reject_reason,
+         checked_at)
+        VALUES
+        <foreach collection="checks" item="check" separator=",">
+            (#{check.id}, #{check.syncId}, #{check.baseCurrency}, #{check.quoteCurrency},
+             #{check.primaryRate}, #{check.primaryDate}, #{check.secondaryRate}, #{check.secondaryDate},
+             #{check.deviationRate}, #{check.dateGapDays}, #{check.threshold}, #{check.checkResult},
+             #{check.rejectReason}, #{check.checkedAt})
+        </foreach>
+    </insert>
+
+    <select id="selectBySyncId"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateCheckEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_rate_check
+        WHERE sync_id = #{syncId}
+        ORDER BY quote_currency ASC
+    </select>
+
+    <select id="selectPage"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCurrencyRateCheckEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_currency_rate_check
+        <where>
+            <if test="quoteCurrency != null and quoteCurrency != ''">
+                AND quote_currency = #{quoteCurrency}
+            </if>
+            <if test="checkResult != null and checkResult != ''">
+                AND check_result = #{checkResult}
+            </if>
+        </where>
+        ORDER BY checked_at DESC, quote_currency ASC
+        LIMIT 5000
+    </select>
+
+</mapper>

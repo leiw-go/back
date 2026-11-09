@@ -64,6 +64,22 @@ public interface CustomerMapper {
     int softDelete(@Param("id") String id, @Param("deletedAt") Long deletedAt);
 
     /**
+     * 查询某负责人名下的全部客户.
+     *
+     * @param ownerId 负责人 ID
+     * @return 客户列表
+     */
+    List<CustomerEntity> selectByOwner(@Param("ownerId") String ownerId);
+
+    /**
+     * 查询带某标签的全部客户.
+     *
+     * @param tagId 标签 ID
+     * @return 客户列表
+     */
+    List<CustomerEntity> selectByTagId(@Param("tagId") String tagId);
+
+    /**
      * 分页查询客户.
      *
      * @param query 筛选条件
