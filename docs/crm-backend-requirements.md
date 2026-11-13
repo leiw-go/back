@@ -311,6 +311,33 @@ CONFIRMED 已确认 → IN_PRODUCTION 生产中 → SHIPPED 已发货 → DELIVE
 
 ---
 
+### 3.13 国家参考（时区 · 当前时间 · 货币 · 汇率）
+
+> **增量需求**（M6）：业务员跟海外客户沟通时，最常问的三件事是"**他们现在几点**"、
+> "**他们用什么钱**"、"**折成人民币是多少**"。这个端点一次把这三件事答完。
+
+- **输入**：国家 —— 支持 **ISO 3166-1 alpha-2 国家码**（`US`）、**英文名**（`United States`）、
+  **中文名**（`美国`）、**常用口语 / 旧称**（`阿联酋` / `印尼` / `象牙海岸`），以及模糊包含。
+- **输出**：
+
+| 字段 | 说明 |
+| --- | --- |
+| `timezone` / `timezones` | 主时区（IANA 区名）与该国全部时区 |
+| `currentTime` / `currentTimeText` | 该国**当前时间**（含 UTC 偏移） |
+| `utcOffset` / `hoursFromBeijing` / `beijingOffsetText` | UTC 偏移与**和北京时间的时差** |
+| `currencyCode` / `currencyName` / `currencySymbol` | 该国**主要货币** |
+| `rateToUsd` / `rateToCny` | 1 本币 = ? 美元 / ? 人民币 |
+| `rateFromUsd` / `rateFromCny` | 1 美元 = ? 本币 / 1 人民币 = ? 本币 |
+| `rateDate` / `rateMissing` | 汇率日期；该币种还没同步进本地汇率表时标 `rateMissing`（其余字段照常返回） |
+
+- **数据来源**：国家 → 时区 / 货币来自参考表 `t_country_ref`（构建期一次性抓取
+  world-countries + IANA tzdb 灌入迁移，**运行期不调任何外部接口**）；
+  汇率来自 `t_currency_rate`（汇率同步任务写入，基准币 USD），对人民币的汇率按 USD 三角折算。
+- **多币种 / 多时区国家**：本地币不在汇率源里时取实际流通的锚定币（如 `FO → DKK`、`KI → AUD`）；
+  多时区国家给主时区（首都 / 人口最多）+ 全部时区列表。
+
+---
+
 ## 4. 接口设计
 
 ### 4.1 通用约定
@@ -597,6 +624,13 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | POST | `/messages` | 发送人工消息（`receiverId` + `title` + `content`） |
 | DELETE | `/messages/{id}` | 删除（逻辑删除，仅自己的消息） |
 
+### 4.14 国家参考 `/api/crm/countries`
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/countries` | 国家列表（`keyword` 按国家码 / 英文名 / 中文名 / 别名模糊搜索，常用外贸国家置顶） |
+| GET | `/countries/info?country=` | 国家详情：时区、当前时间、主要货币、对美元与人民币的汇率 |
+
 ---
 
 ## 5. 数据库设计
@@ -624,7 +658,7 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 9. **枚举**：用 `VARCHAR` 存稳定的英文码（如 `FOLLOWING`），可读文案走 `t_dict_item`；不用数字码。
 10. **迁移**：Flyway，命名 `V<N>__<描述>.sql`，**已执行版本禁止修改**，新增字段一律新版本。
 
-### 5.2 表清单（24 张新表）
+### 5.2 表清单（25 张新表）
 
 | 模块 | 表 | 说明 |
 | --- | --- | --- |
@@ -652,8 +686,10 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | 基础 | `t_currency_rate` | 汇率 ᵀ |
 | 基础 | `t_currency_sync_log` | 汇率同步批次 ᵀ |
 | 基础 | `t_currency_rate_check` | 两源交叉比对明细 ᵀ |
+| 基础 | `t_country_ref` | 国家参考数据（时区 / 主要货币） ᶜ |
 
 > ᵀ 4 张汇率表的字段结构、索引与迁移见 **[汇率数据接入设计](./crm-currency-rate-design.md) §7**。
+> ᶜ `t_country_ref` 是参考数据表（与字典表一致，不设 `deleted`），见 §3.13。
 
 复用现有表：`t_user` / `t_role` / `t_permission` / `t_user_role` / `t_role_permission`
 （仅在 `t_permission` 追加 `crm:access`）。
@@ -1018,6 +1054,7 @@ public void exportCustomers(@Valid CustomerQueryRequest query, HttpServletRespon
 | M3 | `V5__init_crm_inquiry_quotation.sql` | 询盘 + 报价域 ✅ |
 | M4 | `V6__init_crm_order.sql` | 订单 + 发货 + 应收域 ✅ |
 | M5 | `V7__init_crm_message_email_currency.sql` | 站内信 + 邮件 + 汇率域 ✅ |
+| M6 | `V8__init_crm_country_ref.sql` | 国家参考数据（`t_country_ref`，247 条）✅ |
 
 **命名约定**：
 
@@ -1161,6 +1198,26 @@ CRM 模块**一律按 TDD 推进**：先写测试（红）→ 再写实现（绿
 >    所以同步前必须用主源的币种字典（`type = currency`）过滤，只让法定币种入库（实测过滤后 161 条）。
 > 2. **币种字典的 `end_date` 不是废止日期**，而是"最后一次有数据的日期"（在用币种就是昨天）；
 >    判定"长期无数据才算废止"用 30 天窗口（`crm.currency.sync.currency-stale-days`）。
+
+### M6 · 国家参考（增量需求）✅ 已交付
+
+| 任务 | 产出 | 状态 |
+| --- | --- | --- |
+| Flyway `V8__init_crm_country_ref.sql` | `t_country_ref` + 247 条国家参考数据 | ✅ |
+| 国家参考：列表 + 详情 | 2 个端点 | ✅ |
+| 站内信事件触发补齐（6 个业务事件 + 2 个定时扫描） | 触发器 | ✅ |
+
+**验收**：输入"日本"返回 `Asia/Tokyo` + 当地时间 + `JPY` + 对 USD / CNY 的四个方向汇率；
+输入"阿联酋"（官方中文名是"阿拉伯联合酋长国"）也能命中。
+
+> **已验证（真实 HTTP + MySQL）**：`阿联酋 / 美国 / 中国 / 德国 / 印尼 / 越南` 全部命中，
+> 当地时间、时差、货币与四个方向的汇率都对；汇率缺失的币种（如 `ZWL`）标 `rateMissing` 而不是报错。
+>
+> **数据来源说明**：`t_country_ref` 的国家名 / 中文名 / 货币来自 world-countries v5、
+> 国家 → 时区来自 IANA tzdb `zone.tab`，**构建期一次性抓取灌进迁移**，
+> 运行期不依赖任何外部接口（与汇率模块"读路径只读本地表"的口径一致）。
+> 多时区国家的主时区与多币种国家的本地币是**人工判定**的（首都 / 人口最多 / 实际流通），
+> 判定结果固化在迁移里。
 
 ### 上线前检查
 

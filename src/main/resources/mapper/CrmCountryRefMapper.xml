@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmCountryRefMapper">
+
+    <sql id="BaseColumns">
+        id, country_code, country_name, country_name_zh, country_aliases, timezone, timezones,
+        currency_code, currency_name, currency_symbol, is_common
+    </sql>
+
+    <!--
+      关键词匹配优先级：国家码 > 中文名精确 > 英文名精确 > 模糊包含；
+      同级按"常用外贸国家优先"排。
+    -->
+    <sql id="KeywordMatch">
+        <if test="keyword != null and keyword != ''">
+            AND (
+            UPPER(country_code) = UPPER(#{keyword})
+            OR country_name_zh = #{keyword}
+            OR country_name = #{keyword}
+            OR country_aliases = #{keyword}
+            OR CONCAT(',', IFNULL(country_aliases, ''), ',') LIKE CONCAT('%,', #{keyword}, ',%')
+            OR country_name_zh LIKE CONCAT('%', #{keyword}, '%')
+            OR country_name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <sql id="KeywordOrder">
+        <choose>
+            <when test="keyword != null and keyword != ''">
+                ORDER BY
+                CASE
+                WHEN UPPER(country_code) = UPPER(#{keyword}) THEN 0
+                WHEN country_name_zh = #{keyword} THEN 1
+                WHEN country_name = #{keyword} THEN 2
+                WHEN country_aliases = #{keyword}
+                     OR CONCAT(',', IFNULL(country_aliases, ''), ',') LIKE CONCAT('%,', #{keyword}, ',%') THEN 2
+                ELSE 3
+                END,
+                is_common DESC, country_name_zh ASC, country_code ASC
+            </when>
+            <otherwise>
+                ORDER BY is_common DESC, country_name_zh ASC, country_code ASC
+            </otherwise>
+        </choose>
+    </sql>
+
+    <select id="selectByKeyword"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCountryRefEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_country_ref
+        WHERE 1 = 1
+        <include refid="KeywordMatch"/>
+        <include refid="KeywordOrder"/>
+        LIMIT 1
+    </select>
+
+    <select id="selectByCode"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCountryRefEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_country_ref
+        WHERE UPPER(country_code) = UPPER(#{countryCode})
+        LIMIT 1
+    </select>
+
+    <select id="selectAll"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCountryRefEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_country_ref
+        ORDER BY is_common DESC, country_name_zh ASC, country_code ASC
+    </select>
+
+    <select id="selectPage"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmCountryRefEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_country_ref
+        WHERE 1 = 1
+        <include refid="KeywordMatch"/>
+        <include refid="KeywordOrder"/>
+    </select>
+
+</mapper>

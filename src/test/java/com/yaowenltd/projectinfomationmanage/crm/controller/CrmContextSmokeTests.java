@@ -10,6 +10,7 @@ import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmInquiryMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOpportunityMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOrderItemMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmOrderMapper;
+import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmCountryRefMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmReceivableMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailTemplateMapper;
 import com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailCampaignMapper;
@@ -138,6 +139,9 @@ class CrmContextSmokeTests {
 
     @MockBean
     private CrmReceivableMapper crmReceivableMapper;
+
+    @MockBean
+    private CrmCountryRefMapper crmCountryRefMapper;
 
     @MockBean
     private CrmEmailTemplateMapper crmEmailTemplateMapper;
