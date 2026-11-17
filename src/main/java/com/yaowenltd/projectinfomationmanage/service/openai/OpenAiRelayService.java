@@ -113,6 +113,25 @@ public class OpenAiRelayService {
      *         流式 → {@link SseEmitter}
      */
     public Object chatCompletion(ChatCompletionRequest request, String userId, String requestId) {
+        return chatCompletion(request, userId, requestId, null);
+    }
+
+    /**
+     * Chat Completions —— 允许调用方自定义流式输出协议.
+     * <p>
+     * 与 {@link #chatCompletion(ChatCompletionRequest, String, String)} 的区别只有一处：
+     * 流式时上游的每一帧会先经过 {@code translator} 翻译，翻译结果才写给客户端。
+     * provider 路由、密钥解密、上游调用、用量计量、断连处理全部复用本中转的实现。
+     * 非流式时 translator 不生效。
+     *
+     * @param request    OpenAI Chat Completions 请求
+     * @param userId     调用方用户 ID（JWT subject）
+     * @param requestId  客户端 X-Request-Id
+     * @param translator 上游帧翻译器；为 null 时原样透传 OpenAI 帧
+     * @return 非流式 → {@link ResponseEntity}；流式 → {@link SseEmitter}
+     */
+    public Object chatCompletion(ChatCompletionRequest request, String userId, String requestId,
+                                  SseFrameTranslator translator) {
         long start = System.currentTimeMillis();
         ModelRouter.Resolved resolved = ModelRouter.resolve(request.getModel());
         if (resolved == null) {
@@ -136,7 +155,7 @@ public class OpenAiRelayService {
 
         if (request.isStream()) {
             return streamingChat(upstreamRequest, provider, apiKey, resolved.getOriginalModel(),
-                    userId, requestId, start);
+                    userId, requestId, start, translator);
         }
         return nonStreamingChat(upstreamRequest, provider, apiKey, resolved.getOriginalModel(),
                 userId, requestId, start);
@@ -221,7 +240,8 @@ public class OpenAiRelayService {
                                      String originalModel,
                                      String userId,
                                      String requestId,
-                                     long start) {
+                                     long start,
+                                     SseFrameTranslator translator) {
         // SseEmitter(0) 表示无限超时；SSE 长连接由上游 keepalive 控制
         SseEmitter emitter = new SseEmitter(0L);
         String url = joinUrl(provider.getBaseUrl(), "/v1/chat/completions");
@@ -241,7 +261,7 @@ public class OpenAiRelayService {
             try {
                 llmRestTemplate.execute(URI.create(url), HttpMethod.POST,
                         llmRestTemplate.httpEntityCallback(upstreamEntity(upstreamRequest, apiKey)),
-                        streamingChatExtractor(emitter, ctx));
+                        streamingChatExtractor(emitter, ctx, translator));
 
                 // 正常完成 —— 记录用量（从 ctx 取）
                 if (!ctx.clientDisconnected) {
@@ -314,7 +334,8 @@ public class OpenAiRelayService {
     /**
      * 把上游 SSE 字节流转成 emitter 事件 + 累计 usage.
      */
-    private ResponseExtractor<Void> streamingChatExtractor(SseEmitter emitter, StreamingContext ctx) {
+    private ResponseExtractor<Void> streamingChatExtractor(SseEmitter emitter, StreamingContext ctx,
+                                                           SseFrameTranslator translator) {
         return response -> {
             try (InputStream body = response.getBody()) {
                 if (body == null) {
@@ -330,15 +351,41 @@ public class OpenAiRelayService {
                         continue;
                     }
                     String data = line.substring("data:".length()).trim();
+
+                    // 先解析 chunk（提取 usage / delta），再翻译 —— 翻译器拿到的 usage 总是最新的
+                    ChatCompletionChunk chunk = null;
+                    try {
+                        chunk = objectMapper.readValue(data, ChatCompletionChunk.class);
+                        if (chunk.getUsage() != null) {
+                            ctx.promptTokens = n(chunk.getUsage().getPromptTokens());
+                            ctx.completionTokens = n(chunk.getUsage().getCompletionTokens());
+                            ctx.totalTokens = n(chunk.getUsage().getTotalTokens());
+                        }
+                    } catch (JsonProcessingException parseFail) {
+                        // 单个 chunk 解析失败不影响后续
+                    }
+
                     if (SseLineParser.DONE_SENTINEL.equals(data)) {
-                        // 把 OpenAI 的 [DONE] 哨兵也转发给客户端 —— 客户端可以据此更早知道流结束
-                        try {
-                            emitter.send(SseEmitter.event()
-                                    .data(data, MediaType.APPLICATION_JSON));
-                        } catch (IllegalStateException disconnect) {
-                            ctx.clientDisconnected = true;
+                        // 结束哨兵 —— 有翻译器时交给它产出自己的结束事件
+                        if (translator != null) {
+                            sendTranslated(emitter, ctx, translator, data, true, null, null, null);
+                        } else {
+                            // 把 OpenAI 的 [DONE] 哨兵也转发给客户端 —— 客户端可以据此更早知道流结束
+                            try {
+                                emitter.send(SseEmitter.event()
+                                        .data(data, MediaType.APPLICATION_JSON));
+                            } catch (IllegalStateException disconnect) {
+                                ctx.clientDisconnected = true;
+                            }
                         }
                         break;
+                    }
+
+                    if (translator != null) {
+                        // 翻译后转发（翻译器返回 null 表示丢弃该帧）
+                        sendTranslated(emitter, ctx, translator, data, false,
+                                contentOf(chunk), reasoningOf(chunk), finishReasonOf(chunk));
+                        continue;
                     }
 
                     // 转发到客户端
@@ -352,18 +399,6 @@ public class OpenAiRelayService {
                         throw new ClientDisconnectException("client disconnected");
                     } catch (IOException io) {
                         throw io;
-                    }
-
-                    // 解析 chunk 提取 usage
-                    try {
-                        ChatCompletionChunk chunk = objectMapper.readValue(data, ChatCompletionChunk.class);
-                        if (chunk.getUsage() != null) {
-                            ctx.promptTokens = n(chunk.getUsage().getPromptTokens());
-                            ctx.completionTokens = n(chunk.getUsage().getCompletionTokens());
-                            ctx.totalTokens = n(chunk.getUsage().getTotalTokens());
-                        }
-                    } catch (JsonProcessingException parseFail) {
-                        // 单个 chunk 解析失败不影响后续
                     }
                 }
                 return null;
@@ -399,6 +434,91 @@ public class OpenAiRelayService {
         usageRecorder.record(userId, provider.getName(), originalModel, "chat_completions",
                 prompt, completion, total, statusCode,
                 System.currentTimeMillis() - ctx.start, requestId, errorMessage);
+    }
+
+    /**
+     * 把上游帧交给翻译器，翻译结果写给客户端.
+     * <p>
+     * 翻译器返回 null 表示丢弃该帧（此时不写客户端，但 chunk 计数照常累加）。
+     * 客户端断连时置 {@code clientDisconnected} 并抛 {@link ClientDisconnectException}，
+     * 由上层负责停止读上游 —— 与原样转发路径的行为保持一致。
+     * </p>
+     *
+     * @param emitter       SSE 输出
+     * @param ctx           流式上下文（累计 chunk 数与 usage）
+     * @param translator    翻译器
+     * @param raw           原始 data 载荷
+     * @param done          是否结束哨兵
+     * @param content       正文增量
+     * @param reasoning     思考增量
+     * @param finishReason  结束原因
+     */
+    private void sendTranslated(SseEmitter emitter, StreamingContext ctx, SseFrameTranslator translator,
+                                String raw, boolean done, String content, String reasoning,
+                                String finishReason) {
+        SseUpstreamFrame frame = new SseUpstreamFrame(raw, done, content, reasoning, finishReason,
+                ctx.promptTokens, ctx.completionTokens, ctx.totalTokens);
+        List<SseFrame> translated = translator.translate(frame);
+        if (translated == null || translated.isEmpty()) {
+            ctx.chunks++;
+            return;
+        }
+        try {
+            for (SseFrame one : translated) {
+                SseEmitter.SseEventBuilder builder = SseEmitter.event();
+                if (one.getEvent() != null) {
+                    builder.name(one.getEvent());
+                }
+                emitter.send(builder.data(one.getData(), MediaType.APPLICATION_JSON));
+            }
+            ctx.chunks++;
+        } catch (IllegalStateException disconnect) {
+            ctx.clientDisconnected = true;
+            throw new ClientDisconnectException("client disconnected");
+        } catch (IOException io) {
+            throw new RuntimeException(io);
+        }
+    }
+
+    /**
+     * 取 chunk 里的正文增量.
+     *
+     * @param chunk chunk
+     * @return 正文增量，可能为 null
+     */
+    private String contentOf(ChatCompletionChunk chunk) {
+        if (chunk == null || chunk.getChoices() == null || chunk.getChoices().isEmpty()) {
+            return null;
+        }
+        ChatCompletionChunk.Delta delta = chunk.getChoices().get(0).getDelta();
+        return delta == null ? null : delta.getContent();
+    }
+
+    /**
+     * 取 chunk 里的思考增量.
+     *
+     * @param chunk chunk
+     * @return 思考增量，可能为 null
+     */
+    private String reasoningOf(ChatCompletionChunk chunk) {
+        if (chunk == null || chunk.getChoices() == null || chunk.getChoices().isEmpty()) {
+            return null;
+        }
+        ChatCompletionChunk.Delta delta = chunk.getChoices().get(0).getDelta();
+        return delta == null ? null : delta.getReasoningContent();
+    }
+
+    /**
+     * 取 chunk 里的结束原因.
+     *
+     * @param chunk chunk
+     * @return 结束原因，可能为 null
+     */
+    private String finishReasonOf(ChatCompletionChunk chunk) {
+        if (chunk == null || chunk.getChoices() == null || chunk.getChoices().isEmpty()) {
+            return null;
+        }
+        return chunk.getChoices().get(0).getFinishReason();
     }
 
     /**

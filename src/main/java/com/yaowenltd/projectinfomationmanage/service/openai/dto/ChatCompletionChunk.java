@@ -40,6 +40,12 @@ public class ChatCompletionChunk {
     public static class Choice {
         private Integer index;
         private Delta delta;
+
+        /**
+         * 结束原因 —— 上游字段名是 {@code finish_reason}，必须显式映射
+         * （Jackson 默认按驼峰匹配，映射不上会一直是 null）.
+         */
+        @JsonProperty("finish_reason")
         private String finishReason;
     }
 
@@ -51,5 +57,11 @@ public class ChatCompletionChunk {
     public static class Delta {
         private String role;
         private String content;
+
+        /**
+         * 推理型模型（DeepSeek-R1 / MiniMax-M3 等）的思考过程增量.
+         */
+        @JsonProperty("reasoning_content")
+        private String reasoningContent;
     }
 }
