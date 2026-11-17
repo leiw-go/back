@@ -69,13 +69,14 @@ bash scripts/deploy-backend.sh <name> <port> <profile> <network> <image> [db_url
 > 这些改完会引发一次完整重启，而且排错成本高 —— 下笔前先想清楚。
 
 - **没有配置中心**：配置全部来自仓库内 `application.yml` / `application-{profile}.yml`，敏感值用 `${ENV:default}` 占位由环境变量注入。**不要**引入 `spring.config.import` / Nacos / `@RefreshScope` —— `spring-cloud-context` 依赖已随 Nacos 一并移除。
-- **数据库 schema**：dev / test / prod 均用 MySQL；结构与种子数据统一由 `src/main/resources/db/migration/V*__*.sql` 管理（当前只有 `V1__init_project_info_manage.sql`）。**已执行的 migration 禁止修改**（校验和不匹配 → 启动失败），新增字段/索引/表务必新增递增版本的迁移（`V2__xxx.sql`）；无需评估 H2 兼容。
+- **数据库 schema**：dev / test / prod 均用 MySQL；结构与种子数据统一由 `src/main/resources/db/migration/V*__*.sql` 管理（当前 V1 基础表 + V2~V8 CRM 模块 + V9 大模型中转）。**已执行的 migration 禁止修改**（校验和不匹配 → 启动失败），新增字段/索引/表务必新增递增版本的迁移（`V10__xxx.sql`）；无需评估 H2 兼容。
 - **Flyway baseline**：存量库首次接入靠 `baseline-version: "1"` 跳过 V1。prod 的 `baseline-on-migrate` 默认 **false**，首次接管存量生产库必须显式传 `FLYWAY_BASELINE_ON_MIGRATE=true`，否则启动直接失败 —— 部署时要记得。
 - **不使用物理外键**：表结构中**不允许**出现 `FOREIGN KEY` 约束，关联关系统一用「逻辑外键 / 逻辑 mapping」维护 —— 查询走 MyBatis `JOIN`，引用完整性与级联清理由 Service 层负责。改表时不要加外键；写关联行前要在 Service 层校验被引用的记录存在（`UserServiceImpl` / `RoleServiceImpl` 已这么做）；删除时先清关联表再删主体（`UserServiceImpl#deleteUser`、`RoleServiceImpl#deleteRole`）。
 - **单元测试**：纯逻辑测试用 JUnit 5 写，不要加 `@SpringBootTest`；上下文冒烟测试在测试类自身 `properties` 中显式排除 `DataSourceAutoConfiguration` / `MybatisAutoConfiguration`，并对 Mapper 用 `@MockBean` 占位；`./mvnw test` 必须能离线跑通，不连 MySQL（测试 profile 已关 Flyway）。
 - **MyBatis XML 改 namespace**：Mapper 接口和 XML 的 `namespace` 必须一致；`map-underscore-to-camel-case` 已开，**不要**手写 `resultMap`。
 - **JWT secret**：base `application.yml` 的 `jwt.secret` 默认空串，生产由 `JWT_SECRET` 环境变量注入；测试有占位。**不要**在仓库里写真实 secret。
-- **拦截器新增路径**：默认 `/api/**`；新增 `management/**` 之类时**显式**修改 `WebMvcConfig`，别只放行单点。**注意别把 context-path `/design` 写进去** —— 它在进入 DispatcherServlet 前就被剥离，写成 `/design/api/**` 会让拦截器静默失效（2026-11-06 已修过一次）。
+- **拦截器新增路径**：默认 `/api/**` 与 `/v1/**`（后者是 OpenAI 兼容中转）；新增 `management/**` 之类时**显式**修改 `WebMvcConfig`，别只放行单点。**注意别把 context-path `/design` 写进去** —— 它在进入 DispatcherServlet 前就被剥离，写成 `/design/api/**` 会让拦截器静默失效（2026-11-06 已修过一次）。
+- **大模型中转**：本服务自带 OpenAI 兼容网关（`/design/v1/chat/completions` 等），provider 走 DB（api_key AES-GCM 加密），详见 `AGENTS.md §16` 与 `docs/specs/2026-08-04-openai-llm-relay.md`。调用方把 JWT 填进 `api_key` 即可，模型名格式固定 `provider:model`。
 - **类头部 license**：复制 `Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.` — 改类同时改 license。
 - **`@since` 标签**：顶层 public 类 Javadoc 必须有 `@since YYYY-MM-DD`。`checkstyle_huawei.xml` 已在规则里。
 

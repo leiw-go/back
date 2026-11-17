@@ -32,10 +32,21 @@
 | Embedding | `POST /design/v1/embeddings` | 本期不用 |
 | Provider 管理 | `POST/GET/PUT/DELETE /design/api/llm/providers` | ADMIN，写 DB 后即时失效内存缓存 |
 | 用量查询 | `GET /design/api/llm/usage` | 按 user/provider/model 聚合 token |
-| Provider 存储 | `t_llm_provider`（base_url / api_key AES-GCM / enabled / priority） | API key 不入日志不��响应 |
+| Provider 存储 | `t_llm_provider`（base_url / api_key AES-GCM / enabled / priority） | API key 不入日志不进响应 |
 | 用量落库 | `t_llm_request_log`（prompt/completion/total token、status、latency、trace_id） | 流式在 `onCompletion` 写库 |
 | 链路追踪 | `traceId` 全链路（MDC + OpenTelemetry LoggingSpanExporter） | `t_llm_request_log.trace_id` |
 | 鉴权 | `/design/v1/**` 与 `/design/api/**` 共用 JWT | `AuthInterceptor` |
+
+**已配置的 provider（2026-11-17 实测通过）**：
+
+| 项 | 值 |
+| --- | --- |
+| provider 名 | `minimax-cn`（请求里的 model 写 `minimax-cn:MiniMax-M3.1-Flash`） |
+| base_url | `https://api.minimax.cn`（**国内站**；国际站 `api.minimax.io` 用同一把 key 返回 401，已删除该 provider） |
+| 上游模型 | `MiniMax-M3.1-Flash` |
+| 密钥 | AES-GCM 加密存 `t_llm_provider.api_key_ciphertext`，由 `LLM_ENCRYPT_KEY`（dev 用默认占位密钥）解密 |
+
+> 注意 relay 拼上游 URL 的方式是 `baseUrl + "/v1/chat/completions"`，所以 **base_url 里不能带 `/v1`**。
 
 **流式帧格式**（中转已把上游 OpenAI 帧原样转发）：
 
@@ -147,8 +158,16 @@ data: {"requestId":"3f2a...","code":"upstream_error","message":"上游返回 429
 - `error`：出错时唯一一帧；前端停止 loading 并展示原因
 
 **实现要点**：
-- Controller 返回 `SseEmitter`；在 `streamExecutor` 里调 `OpenAiRelayService.chatCompletion(stream=true)`，把 relay 的 OpenAI 帧 **转译**成本协议的 `delta` 帧（解析 `choices[0].delta.content`）
-- relay 的 `usage` 在 `[DONE]` 前最后一个 chunk 里，转译时把 `usage` 暂存，`done` 帧里带出去
+- Controller 返回 `SseEmitter`；在 `streamExecutor` 里调 `OpenAiRelayService.chatCompletion(stream=true)`，把 relay 的 OpenAI 帧 **转译**成本协议的 `delta` 帧
+- relay 是**原样转发**上游帧（实测帧序），转译要认这四种帧：
+
+  | 上游帧 | 含义 | 转译 |
+  | --- | --- | --- |
+  | `choices[0].delta.reasoning_content` | M3.1 的思考过程（该模型总是先思考） | 丢弃，或单独转成 `reasoning` 事件给前端折叠展示 |
+  | `choices[0].delta.content` | 正文增量 | → `delta` 帧 |
+  | `choices: []` 且带 `usage` | 收尾用量帧 | 暂存 usage |
+  | `data: [DONE]` | 流结束哨兵 | → `done` 帧（带 usage / 耗时） |
+
 - 客户端断连：`emitter.onCompletion` / `onTimeout` / `onError` 里置 `disconnected` 标志，停止读取上游（relay 侧已处理断连，这里只做透传）
 - 超时：非流式 60s / 流式 read 0（沿用 `llm.upstream.timeout-ms` 与 provider 级 `timeout_ms_override`）
 - 首次 token 超过 20s 还没来 → 发 `error` 帧（`code=first_token_timeout`）并结束，避免前端无限 loading
@@ -377,23 +396,26 @@ src/pages/crm/email-engine/stream.test.ts  流式解析单测（用假 ReadableS
 
 | 阶段 | 内容 | 产出 |
 | --- | --- | --- |
-| 0 | 合并 `feature/openai-llm-relay` → `feature/crm-backend`，Flyway V2→V9 改名，确认 provider 可用 | 分支可编译可启动 |
+| 0 | ✅ **已完成**（2026-11-17）：合并 `feature/openai-llm-relay` → `master`，Flyway `V2__add_llm_relay.sql` 改名 `V9__add_llm_relay.sql`、删除 relay 的 V1；provider 录入 `minimax-cn` 并实测 `/v1/chat/completions` 非流式/流式均通 | 分支可编译可启动，LLM 可调 |
 | 1 | 后端：DTO / PromptBuilder / Service / Controller / 单测 | `/api/crm/email-engine/**` 可用（curl 验证 SSE） |
 | 2 | 前端：路由 + 8 locale + 页面 + stream.ts + 单测 | `/crm/email-engine` 可用 |
 | 3 | 联调：真实 provider 上跑通多语言、多语气、多场景 | 验收 |
 | 4 | 部署：本地 build → rsync → 线上验证（见 README） | 线上可用 |
 
-**阶段 0 的硬前提**：provider 表 `t_llm_provider` 目前是空的，必须先录入一条启用的 provider（name / base_url / api_key / priority），否则 `/v1/models` 为空、调用直接 404 `invalid_model`。
+**阶段 0 的遗留项**：线上服务器（43.143.244.13）的 `backend` 容器仍是合并前的镜像
+（`leiw-go/back:crm-20261113`），要用邮件引擎必须重建后端镜像并在线上库录入 provider
+（线上 `LLM_ENCRYPT_KEY` 需与录入时一致，否则密文解不开）。
 
 ---
 
 ## 8. 待确认项
 
-1. **用哪个大模型厂商**？DashScope（qwen-max / qwen-plus）、DeepSeek、还是别的？决定了 provider 配置与默认 model。
-2. **provider 的 api_key 怎么给**？需要在管理端 `POST /design/api/llm/providers` 录入（本地或线上环境各一份）。
+1. ~~**用哪个大模型厂商**？~~ ✅ 已定：**MiniMax `MiniMax-M3.1-Flash`**（provider `minimax-cn`，base_url `https://api.minimax.cn`）。
+2. ~~**provider 的 api_key 怎么给**？~~ ✅ 本地已录入（`t_llm_provider`，AES-GCM 加密）；**线上环境待录入**（后端镜像重建时一并处理）。
 3. **目标语言清单**够不够？当前列了 11 种（含中/英/德/西/法/葡/俄/日/韩/阿/意）。
 4. **语气枚举**是否要加"强势/谈判"这类（当前 `assertive` 覆盖催款场景）？
 5. **是否要 AI 顺带生成主题行（subject）**？当前只改写正文，主题仍手工填。
 6. **改写历史要不要落库**？一期只落模板；`t_llm_request_log` 有 token 与耗时，可满足成本审计。
-7. **是否限制单次调用长度**？当前 content ≤ 8000 字、maxTokens 2048。
+7. **是否限制单次调用长度**？当前 content ≤ 8000 字、maxTokens 2048。注意 M3.1 是推理模型，思考 token 也算 completion_tokens —— 实测一次简单改写约 200 prompt / 40 completion（含 37 reasoning tokens），maxTokens 建议不低于 1024，否则正文会被思考挤掉。
 8. **是否要给"邮件引擎"单独开权限**（如仅销售角色可用）？当前所有登录用户可用。
+9. **是否展示 AI 的思考过程**？M3.1 会先输出 `reasoning_content`；可在页面折叠展示（"查看 AI 思考"）或直接丢弃。

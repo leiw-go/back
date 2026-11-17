@@ -112,13 +112,17 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 ### 数据库迁移（Flyway）
 
 - 迁移文件在 `src/main/resources/db/migration/`，命名 `V<版本号>__<描述>.sql`。
-- 当前只有一个迁移：
+- 当前迁移：
 
   | 版本 | 文件 | 作用 |
   | --- | --- | --- |
   | V1 | `V1__init_project_info_manage.sql` | 建 7 张表（**无物理外键**、utf8mb4_unicode_ci、`update_time` 自动更新、索引齐全）+ 种子数据（12 权限 / 2 角色 / admin / testuser） |
+  | V2 ~ V8 | `V2__init_crm_customer.sql` … `V8__init_crm_country_ref.sql` | CRM 客户 / 产品 / 商机 / 询盘报价 / 订单 / 消息邮件汇率 / 国家时区与汇率参考 |
+  | V9 | `V9__add_llm_relay.sql` | 大模型中转：`t_llm_provider`（provider 配置，api_key AES-GCM 加密）+ `t_llm_request_log`（每次调用的 token 用量 / 状态码 / 耗时 / traceId） |
 
-- 后续改表结构一律**新增** `V2__xxx.sql`、`V3__xxx.sql`...，**不要回头改 V1**（已执行过的迁移校验和不匹配会导致启动失败）。
+- 后续改表结构一律**新增** `V10__xxx.sql`、`V11__xxx.sql`...，**不要回头改已执行的迁移**（校验和不匹配会导致启动失败）。
+  - ⚠️ 版本号不能复用：relay 分支原本用 `V2__add_llm_relay.sql`，与 CRM 的 V2 冲突，合并时改成了 **V9**。
+  - ⚠️ 合并别的分支前先比对两边的 `db/migration/`：同名不同版本号会让 Flyway 直接启动失败。
 - `spring.flyway.baseline-version: "1"`：**已有非空库**首次接入时登记为"已到 V1"，跳过 V1；**空库**正常执行 V1。
 - `spring.flyway.baseline-on-migrate`：dev 默认 `true`；**prod 默认 `false`** —— 首次接管存量生产库必须显式传 `FLYWAY_BASELINE_ON_MIGRATE=true`（Jenkins 参数或容器 env），否则会因"非空 schema 且未 baseline"直接启动失败。这是刻意的保护，避免连错库时静默 baseline。
 - `spring.flyway.clean-disabled: true` —— 禁止 `flyway clean`。
@@ -136,7 +140,7 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 
 ## 5. 鉴权 / 接口约定
 
-- 拦截器：`AuthInterceptor` 注册在 `/api/**`，所有 `/api/...` 默认需要 JWT。
+- 拦截器：`AuthInterceptor` 注册在 `/api/**` 与 `/v1/**`（业务接口 + OpenAI 兼容中转），默认都需要 JWT。
 - ⚠️ **拦截路径不写 context-path**：`server.servlet.context-path` 是 `/design`，该前缀在进入 DispatcherServlet **之前**就被剥离，所以拦截器匹配的是 `/api/**` 而不是 `/design/api/**`。写成后者会**静默失效**（拦截器一次都不触发，所有 `/api/**` 端点变成免鉴权）—— 2026-11-06 修过一次，勿改回。
 - 例外：在 controller **方法或类**上标 `@SkipAuth` 即可（不是 `@RequestMapping` 级）。当前放行的有：
   - `AuthController#register`
@@ -320,3 +324,36 @@ docker build -f Dockerfile -t leiw-go/back:dev .
 - `Bcrypt` 编码器提到独立 `@Bean` 而不是每个 Service `new`。
 - 用 Redis 做 token 黑名单 / 强制下线。
 - 把 `RestTemplate` 换成 `WebClient`（响应式 + 不阻塞 Netty event loop）。
+
+---
+
+## 16. 大模型中转（OpenAI 兼容网关）
+
+2026-08-04 起本服务自带一套 OpenAI 协议的大模型中转，上游 provider 走 DB 配置。设计文档见 `docs/specs/2026-08-04-openai-llm-relay.md`。
+
+### 端点
+
+| 方法 | 路径（外部，带 `/design` 前缀） | 说明 |
+| --- | --- | --- |
+| POST | `/design/v1/chat/completions` | `stream=true` → SSE（`data: {json}` 帧 + `data: [DONE]`）；`false` → JSON |
+| POST | `/design/v1/embeddings` | 向量 |
+| GET | `/design/v1/models` | 列出启用中的 provider（形如 `minimax-cn:*`） |
+| GET/POST/PUT/DELETE | `/design/api/llm/providers` | provider 管理（响应**不回传** apiKey） |
+| GET | `/design/api/llm/usage` | token 用量聚合（普通用户只能看自己） |
+
+- `/v1/**` 与 `/api/**` **共用同一套 JWT**（`AuthInterceptor` 同时注册 `/api/**` 与 `/v1/**`）。客户端把 JWT 直接填进 `api_key` 也能用。
+- 模型名格式固定 `"provider:model"`，例如 `minimax-cn:MiniMax-M3.1-Flash`；没有 `provider:` 前缀会被判为非法模型。
+
+### provider 配置
+
+- provider 元数据 + api_key **落 DB**（`t_llm_provider`），api_key 用 AES-GCM 加密存 `api_key_ciphertext`；密钥来自环境变量 `LLM_ENCRYPT_KEY`（32 字节 base64），**不入 git、不入日志、不入响应**。
+- `base_url` **不要带 `/v1`** —— 中转拼上游地址的方式是 `baseUrl + "/v1/chat/completions"`。
+- 已配置：`minimax-cn` → `https://api.minimax.cn`，上游模型 `MiniMax-M3.1-Flash`（国内站；国际站 `api.minimax.io` 用同一把 key 返回 401）。
+- 增删改 provider 后内存缓存 TTL 30s 失效，**不需要重启**。
+
+### 已知行为（改代码前先读）
+
+- 中转**原样转发**上游 SSE 帧。MiniMax M3.1 是推理模型，会先发 `delta.reasoning_content`，再发 `delta.content`；usage 在 `choices: []` 的那一帧里；`data: [DONE]` 是结束哨兵。
+- 错误体必须显式 `Content-Type: application/json`（`GlobalExceptionHandler#json`）—— 客户端带 `Accept: text/event-stream` 时，Spring 会做内容协商，不钉死 Content-Type 就会 406 且错误体写不出去。
+- 每次调用落一行 `t_llm_request_log`（token / 状态码 / 耗时 / traceId）；流式在 `onCompletion` 写库；客户端断连记 `status_code=499`。
+- `llm.upstream.timeout-ms` 默认 60s（非流式），流式 read timeout 固定 0；单 provider 可用 `timeout_ms_override` 覆盖。
