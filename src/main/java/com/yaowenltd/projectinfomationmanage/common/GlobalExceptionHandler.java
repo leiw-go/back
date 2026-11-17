@@ -7,8 +7,11 @@ package com.yaowenltd.projectinfomationmanage.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,13 +28,44 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
+     * 把错误体包成 {@link ResponseEntity} 并<strong>显式钉死</strong>
+     * {@code Content-Type: application/json}。
+     * <p>
+     * <strong>为什么必须显式设置：</strong>直接 {@code return} 一个 POJO 时，Spring 会拿请求的
+     * {@code Accept} 头做内容协商。OpenAI 兼容客户端发流式请求时带
+     * {@code Accept: text/event-stream}，而 Jackson converter 只能产出
+     * {@code application/json}，交集为空 → 抛 {@code HttpMediaTypeNotAcceptableException}
+     * → <strong>本处理器自己的返回值也写不出去</strong>（日志里表现为
+     * "Failure in @ExceptionHandler"）→ 异常继续上抛到 servlet，客户端只拿到一个空 body，
+     * 完全看不到 401 / 400 的真实原因。
+     * </p>
+     * <p>
+     * Content-Type 一旦预设为具体类型，{@code AbstractMessageConverterMethodProcessor}
+     * 就会跳过 Accept 协商直接用它。
+     * </p>
+     * <p>
+     * <strong>HTTP 状态码恒为 200</strong> —— 沿用本仓库既有约定：语义状态码放在响应体的
+     * {@code code} 字段里（见 {@code AuthControllerUnitTests} 的契约说明）。
+     * </p>
+     *
+     * @param body 错误响应体
+     * @return 预设 {@code application/json} 的 ResponseEntity
+     */
+    private static ResponseEntity<ResponseResult<Void>> json(ResponseResult<Void> body) {
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
+    }
+
+    /**
      * 处理方法参数校验异常（{@code @Valid} 校验失败）。
      *
      * @param exception 校验异常
      * @return 含校验错误信息的响应体
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseResult<Void> handleValidationException(MethodArgumentNotValidException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleValidationException(
+            MethodArgumentNotValidException exception) {
         List<String> errors = new ArrayList<>();
         for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
             errors.add(fieldError.getDefaultMessage());
@@ -39,19 +73,23 @@ public class GlobalExceptionHandler {
         ResponseResult<Void> result = new ResponseResult<>(
                 HttpStatus.BAD_REQUEST.value(), "validation error", null);
         result.setErrors(errors);
-        return result;
+        return json(result);
     }
 
     /**
      * 处理请求体缺失或格式错误（{@code @RequestBody} 无法反序列化）.
+     * <p>
+     * 走 {@link #json} 返回，确保 Content-Type 被钉死为 application/json —— 与本类其它
+     * handler 保持一致，避免客户端带 {@code Accept: text/event-stream} 时错误体写不出去。
+     * </p>
      *
      * @param exception 请求体解析异常
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseResult<Void> handleMessageNotReadable(HttpMessageNotReadableException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleMessageNotReadable(HttpMessageNotReadableException exception) {
         LOGGER.warn("Unreadable request body: {}", exception.getMessage());
-        return ResponseResult.badRequest("malformed request body");
+        return json(ResponseResult.badRequest("malformed request body"));
     }
 
     /**
@@ -61,9 +99,10 @@ public class GlobalExceptionHandler {
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseResult<Void> handleIllegalArgumentException(IllegalArgumentException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleIllegalArgumentException(
+            IllegalArgumentException exception) {
         LOGGER.warn("Illegal argument: {}", exception.getMessage());
-        return ResponseResult.badRequest(exception.getMessage());
+        return json(ResponseResult.badRequest(exception.getMessage()));
     }
 
     /**
@@ -73,10 +112,10 @@ public class GlobalExceptionHandler {
      * @return 含未认证提示的响应体
      */
     @ExceptionHandler(UnauthorizedException.class)
-    public ResponseResult<Void> handleUnauthorizedException(UnauthorizedException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleUnauthorizedException(
+            UnauthorizedException exception) {
         LOGGER.warn("Unauthorized access: {}", exception.getMessage());
-        ResponseResult<Void> result = ResponseResult.unauthorized(exception.getMessage());
-        return result;
+        return json(ResponseResult.unauthorized(exception.getMessage()));
     }
 
     /**
@@ -86,9 +125,38 @@ public class GlobalExceptionHandler {
      * @return 含禁止访问提示的响应体
      */
     @ExceptionHandler(ForbiddenException.class)
-    public ResponseResult<Void> handleForbiddenException(ForbiddenException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleForbiddenException(ForbiddenException exception) {
         LOGGER.warn("Forbidden access: {}", exception.getMessage());
-        return ResponseResult.forbidden(exception.getMessage());
+        return json(ResponseResult.forbidden(exception.getMessage()));
+    }
+
+    /**
+     * 处理内容协商失败（{@code Accept} 头与服务端能产出的类型不匹配）。
+     * <p>
+     * 典型场景：OpenAI 兼容客户端发流式请求时带 {@code Accept: text/event-stream}，
+     * 但服务端因为参数校验失败等原因要返回 JSON 错误体。此时若走默认处理，Spring 找不到
+     * 能产出 {@code text/event-stream} 的 converter，本处理器自身的返回值也写不出去
+     * （日志里表现为 "Failure in @ExceptionHandler"），客户端最终只能拿到一个 406 空 body，
+     * 真实错误原因完全丢失。
+     * </p>
+     * <p>
+     * 因此这里必须返回 {@link ResponseEntity} 并<strong>显式钉死</strong>
+     * {@code Content-Type: application/json} —— 预设具体 Content-Type 会让 Spring
+     * 跳过 Accept 协商，保证错误体一定能写出去。
+     * </p>
+     *
+     * @param exception 内容协商异常
+     * @return 406 + JSON 错误体
+     */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ResponseResult<Void>> handleMediaTypeNotAcceptable(
+            HttpMediaTypeNotAcceptableException exception) {
+        LOGGER.warn("Content negotiation failed, supported={}: {}",
+                exception.getSupportedMediaTypes(), exception.getMessage());
+        return json(new ResponseResult<>(
+                HttpStatus.NOT_ACCEPTABLE.value(),
+                "no acceptable representation; this endpoint returns application/json",
+                null));
     }
 
     /**
@@ -98,9 +166,9 @@ public class GlobalExceptionHandler {
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(RuntimeException.class)
-    public ResponseResult<Void> handleRuntimeException(RuntimeException exception) {
+    public ResponseEntity<ResponseResult<Void>> handleRuntimeException(RuntimeException exception) {
         LOGGER.error("Unexpected runtime error: {}", exception.getMessage(), exception);
-        return ResponseResult.error("internal server error");
+        return json(ResponseResult.error("internal server error"));
     }
 
     /**
@@ -110,8 +178,8 @@ public class GlobalExceptionHandler {
      * @return 含错误信息的响应体
      */
     @ExceptionHandler(Exception.class)
-    public ResponseResult<Void> handleException(Exception exception) {
+    public ResponseEntity<ResponseResult<Void>> handleException(Exception exception) {
         LOGGER.error("Unexpected error: {}", exception.getMessage(), exception);
-        return ResponseResult.error("internal server error");
+        return json(ResponseResult.error("internal server error"));
     }
 }

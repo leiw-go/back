@@ -36,6 +36,8 @@ import com.yaowenltd.projectinfomationmanage.crm.service.OrderStatusService;
 import com.yaowenltd.projectinfomationmanage.crm.service.QuotationPricingService;
 import com.yaowenltd.projectinfomationmanage.crm.service.QuotationStatusService;
 import com.yaowenltd.projectinfomationmanage.mapper.LotteryPeriodMapper;
+import com.yaowenltd.projectinfomationmanage.mapper.llm.LlmProviderMapper;
+import com.yaowenltd.projectinfomationmanage.mapper.llm.LlmRequestLogMapper;
 import com.yaowenltd.projectinfomationmanage.mapper.PermissionMapper;
 import com.yaowenltd.projectinfomationmanage.mapper.ProductMapper;
 import com.yaowenltd.projectinfomationmanage.mapper.RoleMapper;
@@ -160,6 +162,12 @@ class CrmContextSmokeTests {
 
     @MockBean
     private CurrencyRateCheckMapper currencyRateCheckMapper;
+
+    @MockBean
+    private LlmProviderMapper llmProviderMapper;
+
+    @MockBean
+    private LlmRequestLogMapper llmRequestLogMapper;
 
     @Autowired
     private QuotationPricingService quotationPricingService;
