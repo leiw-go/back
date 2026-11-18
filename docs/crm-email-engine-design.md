@@ -74,7 +74,7 @@ data: [DONE]
 
 ```
 ┌──────────── GreatBusUI ────────────┐        ┌──────────── GreatBus (Spring Boot) ────────────┐
-│ 页面 /crm/email-engine              │        │  POST /api/crm/email-engine/rewrite  (SSE)      │
+│ 页面 /email-engine                  │        │  POST /api/crm/email-engine/rewrite  (SSE)      │
 │  ├ 左：原始邮件 + 改写参数          │  POST  │        │                                     │
 │  ├ 右：流式结果 + 复制/存模板       │ ─────► │  CrmEmailEngineController                   │
 │  └ stream.ts: fetch + ReadableStream│  SSE   │        ▼                                     │
@@ -551,3 +551,92 @@ Sales Executive
 核对：`1000 pcs`、`5050 RGB` 两个事实原样保留；老客户语气直白（"Please send us your quotation and
 lead time."），没有堆客套；主题行由模型优化但没改事实。
 
+
+---
+
+## 11. 生产部署记录（2026-11-18）
+
+### 发布内容
+
+| 仓库 | commit | 内容 |
+| --- | --- | --- |
+| GreatBusUI | `02eac3e` | 邮件引擎页面、占位符高亮、顶层菜单、i18n、`openapi:sync` |
+| GreatBus | `7323b67` | 邮件引擎后端、语气两档、主题正文拆分 |
+| GreatBus | `cdb8e90` | 修：署名里的发件人姓名原样写，不要补 `[Last Name]` |
+
+### 后端
+
+```bash
+# 本地构建 linux/amd64 镜像 → save|gzip → scp → 远端 load → compose up -d
+DEPLOY_HOST=ubuntu@43.143.244.13 \
+DEPLOY_DIR=/home/ubuntu/jenkins-deploy/backend \
+DEPLOY_SSH_KEY=~/.ssh/id_ed25519 \
+BACKEND_NETWORK=deploy-net \
+./scripts/deploy-prod.sh
+```
+
+- 远端 `backend` 容器 healthy（`{"status":"UP"}`）
+- **Flyway V9 `add llm relay` 自动执行** → `t_llm_provider` / `t_llm_request_log` 建好
+- 远端 `backend.env` 新增 `LLM_ENCRYPT_KEY`（`openssl rand -base64 32`，
+  **在远程机上生成**，密钥不出机器），权限 600
+
+### provider 登记
+
+provider 的 `api_key` 由后端用 `LLM_ENCRYPT_KEY` 做 AES-GCM 加密后落库，
+明文不落盘、不进仓库：
+
+```bash
+# key 从本机剪贴板读出（pbpaste），经 SSH 通道送到生产后端
+KEY=$(pbpaste | tr -d '\n\r')
+curl -s -X POST https://design.yaowen.store/api/llm/providers \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
+  -d "{\"name\":\"minimax-cn\",\"baseUrl\":\"https://api.minimax.cn\",\"apiKey\":\"$KEY\",\"enabled\":1,\"priority\":20}"
+```
+
+路由用的 provider 名是 `t_llm_provider.name`（不是 id），必须与模型的
+`provider:model` 前缀一致 —— 默认模型 `minimax-cn:MiniMax-M3.1-Flash` 对应 name `minimax-cn`。
+
+### 前端
+
+```bash
+rsync -az --delete --exclude '.DS_Store' \
+  -e "ssh -i ~/.ssh/id_ed25519" dist/ ubuntu@43.143.244.13:/var/www/frontend/
+```
+
+备份在 `/home/ubuntu/backups/frontend-20261118_090222/`，回滚直接换目录内容。
+
+### 生产实测
+
+`POST https://design.yaowen.store/api/crm/email-engine/rewrite`：
+
+```
+meta:  model=minimax-cn:MiniMax-M3.1-Flash  tone=新客户语气  scene=报价与议价
+事件:  reasoning ×256, delta ×36, done ×1
+耗时:  10.1s
+usage: prompt 687 / completion 1164 / total 1851
+
+Subject: LED Strip Quotation and Sample Request
+
+Dear Sir or Madam,
+
+Thank you for your inquiry about LED strips. Could you please provide the model
+and required quantity so we can prepare an accurate quotation?
+
+Our quotation will include the price, lead time, and minimum order quantity,
+together with the applicable quotation validity period. We would also be pleased
+to send a sample first, allowing you to evaluate the product before proceeding
+with a bulk order.
+
+Please confirm the model and quantity, and let us know whether you would like a
+sample arranged. We would appreciate it if you could reply by [deadline].
+
+Best regards,
+leon
+[Last Name]        ← 已修，见 commit cdb8e90
+Sales Representative
+[Company Name]
+```
+
+核对：新客户语气的委婉句式命中（Could you please / We would appreciate it if you could）；
+主题与正文在 `done` 帧里正确拆分；占位符 `[deadline]` `[Last Name]` `[Company Name]`
+在前端会标红。
