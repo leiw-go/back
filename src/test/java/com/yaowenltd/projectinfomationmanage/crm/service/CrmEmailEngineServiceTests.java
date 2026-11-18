@@ -7,6 +7,7 @@ package com.yaowenltd.projectinfomationmanage.crm.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.email.CrmEmailEngineRewriteRequest;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEnginePromptBuilder;
+import com.yaowenltd.projectinfomationmanage.crm.service.CrmEmailEngineHistoryService;
 import com.yaowenltd.projectinfomationmanage.crm.service.impl.CrmEmailEngineServiceImpl;
 import com.yaowenltd.projectinfomationmanage.service.openai.OpenAiRelayService;
 import com.yaowenltd.projectinfomationmanage.service.openai.SseFrame;
@@ -51,9 +52,12 @@ class CrmEmailEngineServiceTests {
     @Mock
     private OpenAiRelayService relayService;
 
+    @Mock
+    private CrmEmailEngineHistoryService historyService;
+
     private CrmEmailEngineServiceImpl service() {
         return new CrmEmailEngineServiceImpl(new CrmEmailEnginePromptBuilder(),
-                relayService, new ObjectMapper());
+                relayService, new ObjectMapper(), historyService);
     }
 
     private CrmEmailEngineRewriteRequest request() {

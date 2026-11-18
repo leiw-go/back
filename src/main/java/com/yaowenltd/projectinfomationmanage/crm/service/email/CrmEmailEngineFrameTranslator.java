@@ -9,11 +9,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yaowenltd.projectinfomationmanage.service.openai.SseFrame;
 import com.yaowenltd.projectinfomationmanage.service.openai.SseFrameTranslator;
 import com.yaowenltd.projectinfomationmanage.service.openai.SseUpstreamFrame;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 邮件引擎的帧翻译器：上游 OpenAI 帧 → 业务事件协议.
@@ -35,6 +37,8 @@ import java.util.Map;
  */
 public class CrmEmailEngineFrameTranslator implements SseFrameTranslator {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrmEmailEngineFrameTranslator.class);
+
     private final ObjectMapper objectMapper;
     private final String model;
     private final CrmEmailEngineLanguage language;
@@ -44,6 +48,8 @@ public class CrmEmailEngineFrameTranslator implements SseFrameTranslator {
     private final long start;
     private final String systemPrompt;
     private final String userPrompt;
+    /** 生成完成后的回调 —— 用来把结果落进生成历史；可为空（不落库）. */
+    private final Consumer<CrmEmailEngineGenerated> onCompleted;
 
     private boolean metaSent;
     private String finishReason;
@@ -72,6 +78,33 @@ public class CrmEmailEngineFrameTranslator implements SseFrameTranslator {
                                           long start,
                                           String systemPrompt,
                                           String userPrompt) {
+        this(objectMapper, model, language, tone, scene, requestId, start, systemPrompt, userPrompt, null);
+    }
+
+    /**
+     * 构造翻译器（带生成完成回调）.
+     *
+     * @param objectMapper JSON 序列化
+     * @param model        模型名（{@code provider:model}）
+     * @param language     目标语言
+     * @param tone         语气
+     * @param scene        场景
+     * @param requestId    请求 ID
+     * @param start        开始时间戳（毫秒）
+     * @param systemPrompt 实际发送的系统提示（回传给前端，便于核对改写依据）
+     * @param userPrompt   实际发送的用户提示（回传给前端）
+     * @param onCompleted  生成完成回调（落生成历史用）；可为空
+     */
+    public CrmEmailEngineFrameTranslator(ObjectMapper objectMapper,
+                                          String model,
+                                          CrmEmailEngineLanguage language,
+                                          CrmEmailEngineTone tone,
+                                          CrmEmailEngineScene scene,
+                                          String requestId,
+                                          long start,
+                                          String systemPrompt,
+                                          String userPrompt,
+                                          Consumer<CrmEmailEngineGenerated> onCompleted) {
         this.objectMapper = objectMapper;
         this.model = model;
         this.language = language;
@@ -81,6 +114,7 @@ public class CrmEmailEngineFrameTranslator implements SseFrameTranslator {
         this.start = start;
         this.systemPrompt = systemPrompt;
         this.userPrompt = userPrompt;
+        this.onCompleted = onCompleted;
     }
 
     @Override
@@ -91,6 +125,8 @@ public class CrmEmailEngineFrameTranslator implements SseFrameTranslator {
             out.add(SseFrame.named("meta", toJson(metaPayload())));
         }
         if (frame.isDone()) {
+            // 先落历史再发 done —— 前端收到 done 就去查列表，不会撞上还没提交的记录
+            notifyCompleted(frame);
             out.add(SseFrame.named("done", toJson(donePayload(frame))));
             return out;
         }
@@ -111,6 +147,37 @@ public class CrmEmailEngineFrameTranslator implements SseFrameTranslator {
             out.add(SseFrame.named("delta", toJson(payload)));
         }
         return out;
+    }
+
+    /**
+     * 通知上层「生成已完成」—— 用来把结果落进生成历史.
+     * <p>
+     * 落库失败不能影响邮件本身 —— 吞掉异常只记日志。
+     *
+     * @param frame 结束哨兵帧（带累计 usage）
+     */
+    private void notifyCompleted(SseUpstreamFrame frame) {
+        if (onCompleted == null) {
+            return;
+        }
+        try {
+            CrmEmailEngineOutputParser.Parsed parsed =
+                    CrmEmailEngineOutputParser.parse(contentBuffer.toString());
+            onCompleted.accept(new CrmEmailEngineGenerated(
+                    requestId,
+                    parsed.subject(),
+                    parsed.body(),
+                    model,
+                    language.getCode(),
+                    tone.getCode(),
+                    scene.getCode(),
+                    System.currentTimeMillis() - start,
+                    frame.getPromptTokens(),
+                    frame.getCompletionTokens(),
+                    frame.getTotalTokens()));
+        } catch (Exception e) {
+            LOGGER.warn("保存邮件生成历史失败: {}", e.getMessage());
+        }
     }
 
     /**

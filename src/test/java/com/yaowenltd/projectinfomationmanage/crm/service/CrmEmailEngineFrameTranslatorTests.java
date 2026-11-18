@@ -6,6 +6,7 @@ package com.yaowenltd.projectinfomationmanage.crm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineFrameTranslator;
+import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineGenerated;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineLanguage;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineScene;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineTone;
@@ -14,6 +15,7 @@ import com.yaowenltd.projectinfomationmanage.service.openai.SseUpstreamFrame;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -145,5 +147,53 @@ class CrmEmailEngineFrameTranslatorTests {
         assertTrue(data.contains("Dear Mr. Smith,"), "正文应保留");
         assertTrue(data.contains("Could you please quote 1000 pcs?"), "正文应完整");
         assertFalse(data.contains("Subject: LED strip quotation\\n"), "主题行不应留在正文里");
+    }
+
+    @Test
+    @DisplayName("生成完成时回调一次，带上主题、正文与用量")
+    void completedCallbackReceivesGenerated() {
+        List<CrmEmailEngineGenerated> captured = new ArrayList<>();
+        CrmEmailEngineFrameTranslator translator = new CrmEmailEngineFrameTranslator(
+                objectMapper, "minimax-cn:MiniMax-M3.1-Flash",
+                CrmEmailEngineLanguage.EN, CrmEmailEngineTone.NEW_CUSTOMER, CrmEmailEngineScene.QUOTATION,
+                "req-1", System.currentTimeMillis(), "system prompt", "user prompt", captured::add);
+
+        translator.translate(new SseUpstreamFrame(
+                "{}", false, "Subject: LED strip quotation\n\nDear Mr. Smith,\n", null, null, null, null, null));
+        translator.translate(new SseUpstreamFrame(
+                "[DONE]", true, null, null, null, 10, 20, 30));
+
+        assertEquals(1, captured.size());
+        CrmEmailEngineGenerated generated = captured.get(0);
+        assertEquals("req-1", generated.requestId());
+        assertEquals("LED strip quotation", generated.subject());
+        assertTrue(generated.body().contains("Dear Mr. Smith,"));
+        assertEquals("en", generated.language());
+        assertEquals("new_customer", generated.tone());
+        assertEquals("quotation", generated.scene());
+        assertEquals(10, generated.promptTokens());
+        assertEquals(20, generated.completionTokens());
+        assertEquals(30, generated.totalTokens());
+    }
+
+    @Test
+    @DisplayName("回调抛异常不影响 done 帧")
+    void completedCallbackFailureDoesNotBreakStream() {
+        CrmEmailEngineFrameTranslator translator = new CrmEmailEngineFrameTranslator(
+                objectMapper, "minimax-cn:MiniMax-M3.1-Flash",
+                CrmEmailEngineLanguage.EN, CrmEmailEngineTone.NEW_CUSTOMER, CrmEmailEngineScene.QUOTATION,
+                "req-1", System.currentTimeMillis(), "system prompt", "user prompt",
+                generated -> {
+                    throw new IllegalStateException("落库失败");
+                });
+
+        translator.translate(new SseUpstreamFrame(
+                "{}", false, "Subject: X\n\nBody", null, null, null, null, null));
+
+        List<SseFrame> frames = translator.translate(new SseUpstreamFrame(
+                "[DONE]", true, null, null, null, 1, 2, 3));
+
+        assertEquals("done", frames.get(0).getEvent());
+        assertTrue(frames.get(0).getData().contains("\"finishReason\""));
     }
 }

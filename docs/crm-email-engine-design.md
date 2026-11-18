@@ -640,3 +640,66 @@ Sales Representative
 核对：新客户语气的委婉句式命中（Could you please / We would appreciate it if you could）；
 主题与正文在 `done` 帧里正确拆分；占位符 `[deadline]` `[Last Name]` `[Company Name]`
 在前端会标红。
+
+---
+
+## 12. 邮件生成历史（2026-11-18）
+
+### 12.1 为什么要存
+
+一次生成的成本不低（实测 10~20 秒、1000+ token），而外贸邮件往往是
+「生成 → 不满意 → 换个语气/加要求 → 再生成」地来回磨。
+没有历史的话，上一版就没了，只能重新来过。
+
+所以：**每次生成成功的邮件都落一份**，按时间倒排展示在邮件引擎页面上，
+并且可以一键把任意一版「粘回草稿」继续改。
+
+### 12.2 表结构
+
+`V10__add_crm_email_generation.sql` → `t_crm_email_generation`：
+
+| 列 | 说明 |
+| --- | --- |
+| `id` | 主键（UUID） |
+| `request_id` | 一次生成的请求 ID，与 `t_llm_request_log` 对齐 |
+| `subject` / `content` | 主题与正文（正文 LONGTEXT） |
+| `language` / `tone` / `scene` / `model` | 这次的生成参数 |
+| `source_content` | 输入的草稿；为空 = 直接生成 |
+| `custom_instruction` | 使用者提的特殊要求 |
+| `customer_name` / `sender_name` / `sender_company` / `sender_title` | 收发件人上下文 |
+| `elapsed_ms` / `prompt_tokens` / `completion_tokens` / `total_tokens` | 耗时与用量 |
+| `owner_id` | 生成人 |
+| `create_time` / `update_time` / `deleted` | 与其他 CRM 表一致 |
+
+### 12.3 落库时机
+
+**在流结束、发 `done` 帧之前落库** —— 这样前端收到 `done` 就去查列表时，
+记录已经提交，不会撞上「列表里还没有、但刚生成完」的竞态。
+
+落库点在 `CrmEmailEngineFrameTranslator`：它是唯一知道「流结束了、正文齐了」的地方。
+翻译器持有一个 `Consumer<CrmEmailEngineGenerated>` 回调，
+由 `CrmEmailEngineServiceImpl` 注入 —— 回调里调 `CrmEmailEngineHistoryService.save(...)`。
+
+> 落库失败**不能影响邮件本身**：回调内部吞掉异常只记日志，
+> `done` 帧照发（单测 `completedCallbackFailureDoesNotBreakStream` 锁住这个行为）。
+
+### 12.4 接口
+
+```
+GET    /design/api/crm/email-engine/history?page=1&size=20   → PageResponse<CrmEmailGenerationDto>
+GET    /design/api/crm/email-engine/history/{id}              → CrmEmailGenerationDto
+DELETE /design/api/crm/email-engine/history/{id}              → Boolean（逻辑删除）
+```
+
+### 12.5 前端
+
+邮件引擎页面右栏，「改写结果」卡片下面：
+
+- 一张「生成历史」卡片，列表按生成时间倒排
+- 每条显示：主题 + 语言/语气/场景标签 + 生成时间
+- 每条的操作：**查看**（抽屉里看全文，占位符同样标红）、**复制**、**粘回草稿**、**删除**
+- 抽屉里还能看到这次的模型、耗时、token 用量、特殊要求、输入的草稿
+- 每生成完一封，前端自动 invalidate 列表
+
+`粘回草稿` 与结果区的「粘回草稿」是同一件事 —— 把历史版本填进草稿框，
+此时草稿非空，模式自动从「生成」切成「微调」，于是可以接着改。

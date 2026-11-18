@@ -119,8 +119,9 @@ docker build -f Dockerfile -t leiw-go/back:dev .
   | V1 | `V1__init_project_info_manage.sql` | 建 7 张表（**无物理外键**、utf8mb4_unicode_ci、`update_time` 自动更新、索引齐全）+ 种子数据（12 权限 / 2 角色 / admin / testuser） |
   | V2 ~ V8 | `V2__init_crm_customer.sql` … `V8__init_crm_country_ref.sql` | CRM 客户 / 产品 / 商机 / 询盘报价 / 订单 / 消息邮件汇率 / 国家时区与汇率参考 |
   | V9 | `V9__add_llm_relay.sql` | 大模型中转：`t_llm_provider`（provider 配置，api_key AES-GCM 加密）+ `t_llm_request_log`（每次调用的 token 用量 / 状态码 / 耗时 / traceId） |
+  | V10 | `V10__add_crm_email_generation.sql` | 邮件生成历史：`t_crm_email_generation`（每次生成的邮件 + 生成参数 + token 用量） |
 
-- 后续改表结构一律**新增** `V10__xxx.sql`、`V11__xxx.sql`...，**不要回头改已执行的迁移**（校验和不匹配会导致启动失败）。
+- 后续改表结构一律**新增** `V11__xxx.sql`、`V12__xxx.sql`...，**不要回头改已执行的迁移**（校验和不匹配会导致启动失败）。
   - ⚠️ 版本号不能复用：relay 分支原本用 `V2__add_llm_relay.sql`，与 CRM 的 V2 冲突，合并时改成了 **V9**。
   - ⚠️ 合并别的分支前先比对两边的 `db/migration/`：同名不同版本号会让 Flyway 直接启动失败。
 - `spring.flyway.baseline-version: "1"`：**已有非空库**首次接入时登记为"已到 V1"，跳过 V1；**空库**正常执行 V1。

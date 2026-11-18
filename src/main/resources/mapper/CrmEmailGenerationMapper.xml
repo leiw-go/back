@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yaowenltd.projectinfomationmanage.crm.mapper.CrmEmailGenerationMapper">
+
+    <sql id="BaseColumns">
+        id, request_id, subject, content, language, tone, scene, model,
+        source_content, custom_instruction, customer_name,
+        sender_name, sender_company, sender_title,
+        elapsed_ms, prompt_tokens, completion_tokens, total_tokens,
+        owner_id, create_time, update_time, deleted
+    </sql>
+
+    <insert id="insert"
+            parameterType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailGenerationEntity">
+        INSERT INTO t_crm_email_generation
+        (id, request_id, subject, content, language, tone, scene, model,
+         source_content, custom_instruction, customer_name,
+         sender_name, sender_company, sender_title,
+         elapsed_ms, prompt_tokens, completion_tokens, total_tokens,
+         owner_id, deleted)
+        VALUES
+        (#{id}, #{requestId}, #{subject}, #{content}, #{language}, #{tone}, #{scene}, #{model},
+         #{sourceContent}, #{customInstruction}, #{customerName},
+         #{senderName}, #{senderCompany}, #{senderTitle},
+         #{elapsedMs}, #{promptTokens}, #{completionTokens}, #{totalTokens},
+         #{ownerId}, #{deleted})
+    </insert>
+
+    <select id="selectById"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailGenerationEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_crm_email_generation
+        WHERE id = #{id}
+          AND deleted = 0
+    </select>
+
+    <select id="selectPage"
+            resultType="com.yaowenltd.projectinfomationmanage.crm.model.entity.CrmEmailGenerationEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM t_crm_email_generation
+        WHERE deleted = 0
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <update id="softDelete">
+        UPDATE t_crm_email_generation
+        SET deleted = #{deletedAt}
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+</mapper>

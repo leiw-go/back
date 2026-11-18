@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.email.CrmEmailEngineOptionsDto;
 import com.yaowenltd.projectinfomationmanage.crm.model.dto.email.CrmEmailEngineRewriteRequest;
+import com.yaowenltd.projectinfomationmanage.crm.service.CrmEmailEngineHistoryService;
 import com.yaowenltd.projectinfomationmanage.crm.service.CrmEmailEngineService;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineFrameTranslator;
 import com.yaowenltd.projectinfomationmanage.crm.service.email.CrmEmailEngineLanguage;
@@ -58,6 +59,7 @@ public class CrmEmailEngineServiceImpl implements CrmEmailEngineService {
     private final CrmEmailEnginePromptBuilder promptBuilder;
     private final OpenAiRelayService relayService;
     private final ObjectMapper objectMapper;
+    private final CrmEmailEngineHistoryService historyService;
 
     /**
      * 使用指定的依赖构造 CrmEmailEngineServiceImpl.
@@ -65,13 +67,16 @@ public class CrmEmailEngineServiceImpl implements CrmEmailEngineService {
      * @param promptBuilder prompt 构造器
      * @param relayService  大模型中转
      * @param objectMapper  JSON 序列化
+     * @param historyService 生成历史服务
      */
     public CrmEmailEngineServiceImpl(CrmEmailEnginePromptBuilder promptBuilder,
                                       OpenAiRelayService relayService,
-                                      ObjectMapper objectMapper) {
+                                      ObjectMapper objectMapper,
+                                      CrmEmailEngineHistoryService historyService) {
         this.promptBuilder = promptBuilder;
         this.relayService = relayService;
         this.objectMapper = objectMapper;
+        this.historyService = historyService;
     }
 
     @Override
@@ -98,7 +103,9 @@ public class CrmEmailEngineServiceImpl implements CrmEmailEngineService {
                 message("user", userPrompt)));
 
         CrmEmailEngineFrameTranslator translator = new CrmEmailEngineFrameTranslator(
-                objectMapper, model, language, tone, scene, requestId, start, systemPrompt, userPrompt);
+                objectMapper, model, language, tone, scene, requestId, start, systemPrompt, userPrompt,
+                // 生成成功后落一份历史 —— 失败不影响邮件本身（回调内部已吞异常）
+                generated -> historyService.save(generated, request, userId));
         Object result = relayService.chatCompletion(upstream, userId, requestId, translator);
         if (result instanceof SseEmitter emitter) {
             return emitter;
