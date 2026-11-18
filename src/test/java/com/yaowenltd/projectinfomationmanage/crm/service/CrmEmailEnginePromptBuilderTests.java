@@ -149,4 +149,13 @@ class CrmEmailEnginePromptBuilderTests {
         assertTrue(prompt.contains("leon"), "发件人应回落到 leon");
         assertTrue(prompt.contains("销售业务员"), "职位应回落到销售业务员");
     }
+
+    @Test
+    @DisplayName("提示词要求署名原样写名字，不许补 [Last Name] 之类的占位")
+    void systemPromptKeepsSenderNameAsIs() {
+        String prompt = builder.buildSystemPrompt(request());
+
+        assertTrue(prompt.contains("原样写"), "应要求发件人姓名原样写");
+        assertTrue(prompt.contains("[Last Name]"), "应点名禁止拆姓名补占位");
+    }
 }

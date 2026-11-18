@@ -80,7 +80,8 @@ public class CrmEmailEnginePromptBuilder {
                         ? "8. 没有额外的特殊要求，按上面的约定写。"
                         : "8. 使用者额外提出的特殊场景与要求（优先级高于第 7 条的场景约定）：" + custom,
                 "9. 上下文里的称呼、落款如果没有给出，就用通用占位（如 Dear Sir or Madam / Best regards），"
-                        + "不要编造具体人名。");
+                        + "不要编造具体人名。署名里的发件人姓名按我方发件人原样写"
+                        + "（给的是 leon 就写 leon），不要拆成名和姓、不要补 [Last Name] 这类占位。");
     }
 
     /**
